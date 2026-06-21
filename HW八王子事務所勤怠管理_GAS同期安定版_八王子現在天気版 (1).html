@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HW八王子事務所勤怠管理</title>
+  <!-- gas-sync-stable-jsonp-first-20260618 -->
+  <style>
+    :root {
+      --bg:#f8fafc; --card:#ffffff; --text:#1e293b; --muted:#64748b; --line:#e2e8f0;
+      --indigo:#4f46e5; --indigo-dark:#3730a3; --emerald:#10b981; --blue:#3b82f6; --amber:#f59e0b; --rose:#e11d48;
+      --shadow:0 8px 22px rgba(15,23,42,.08);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans JP",sans-serif;min-height:100%;}
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer;border:0}
+    button:disabled{cursor:not-allowed;opacity:.55}
+    .app{min-height:100vh;padding-bottom:86px}
+    .header{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line);box-shadow:0 1px 8px rgba(15,23,42,.04)}
+    .header-inner{max-width:480px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:flex-start;gap:12px}
+    .brand{display:flex;align-items:center;gap:10px;min-width:0}.brand-icon{background:var(--indigo);color:#fff;width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font-weight:900;position:relative}.brand h1{font-size:15px;line-height:1.2;margin:0;font-weight:900}.brand p{margin:3px 0 0;color:var(--muted);font-size:11px;font-weight:700}.timebox{text-align:right;white-space:nowrap}.timebox span{display:block;font-size:10px;color:#94a3b8;font-weight:800}.timebox b{display:inline-block;font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#f1f5f9;border-radius:8px;padding:4px 7px;color:#334155}
+    .main{max-width:480px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:14px}.card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:16px}.card-title{font-size:14px;font-weight:900;margin:0 0 12px;display:flex;align-items:center;gap:7px}.sub-title{font-size:12px;color:var(--muted);font-weight:800;margin:0 0 8px}.row{display:flex;align-items:center;justify-content:space-between;gap:10px}.stack{display:flex;flex-direction:column;gap:14px}.hidden{display:none!important}.fade{animation:fadeIn .25s ease-out}@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+    .now-weather-card{background:linear-gradient(135deg,#f7f3ec 0%,#eef7f1 52%,#f8fbf7 100%);color:#1f2933;border:1px solid #e2d8c8;box-shadow:0 10px 24px rgba(89,72,49,.08)}.now-weather-head{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px}.now-weather-label{font-size:12px;font-weight:900;color:#6b705c;letter-spacing:.03em}.now-weather-date{font-size:13px;font-weight:900;color:#8a8176;background:rgba(255,255,255,.55);border:1px solid rgba(138,129,118,.18);border-radius:999px;padding:5px 9px;white-space:nowrap}.large-clock{font-size:40px;line-height:1.05;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:950;letter-spacing:-.04em;color:#25311f;margin:2px 0 14px;text-align:center}.large-clock small{display:block;font-family:inherit;font-size:14px;letter-spacing:0;color:#7c7768;font-weight:900;margin-top:8px}.weather-panel{display:flex;align-items:center;justify-content:space-between;gap:12px;background:rgba(255,255,255,.62);border:1px solid rgba(138,129,118,.18);border-radius:18px;padding:14px 15px}.weather-left{display:flex;align-items:center;gap:12px;min-width:0}.weather-icon-large{font-size:36px;line-height:1}.weather-condition-large{font-size:20px;font-weight:950;color:#2f3e2f;line-height:1.15}.weather-location{font-size:12px;color:#7c7768;font-weight:900;margin-top:3px}.weather-temp-large{font-size:18px;font-weight:950;color:#3d5a40;white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.weather-temp-large span{font-size:12px;color:#8a8176;font-weight:900;margin:0 3px}@media(max-width:380px){.large-clock{font-size:29px}.weather-panel{align-items:flex-start}.weather-condition-large,.weather-temp-large{font-size:18px}.weather-icon-large{font-size:32px}}
+    .status{display:none;border-radius:14px;border:1px solid var(--line);padding:12px 13px;font-size:13px;font-weight:800;line-height:1.45}.status.show{display:block}.status.success{background:#ecfdf5;color:#065f46;border-color:#a7f3d0}.status.error{background:#fff1f2;color:#9f1239;border-color:#fecdd3}.status.info{background:#eef2ff;color:#3730a3;border-color:#c7d2fe}
+    label{display:block;font-size:13px;font-weight:900;color:#475569;margin-bottom:8px}.select-wrap{position:relative}select,input[type="url"],input[type="password"],input[type="text"],textarea{width:100%;background:#f8fafc;border:1px solid #cbd5e1;border-radius:13px;padding:12px 13px;color:#1e293b;outline:none}select:focus,input:focus,textarea:focus{border-color:var(--indigo);box-shadow:0 0 0 3px rgba(79,70,229,.15)}select{font-size:17px;font-weight:800;appearance:auto}.choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.choice{padding:11px 8px;border-radius:13px;background:#f8fafc;border:1px solid var(--line);font-size:12px;font-weight:900;color:#475569}.choice.active{background:var(--indigo);border-color:var(--indigo);color:#fff}.textarea{min-height:64px;resize:vertical;font-size:13px}
+    .punch-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.punch-btn{min-height:112px;border-radius:18px;color:#fff;font-weight:950;box-shadow:0 8px 18px rgba(15,23,42,.12);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:7px;transition:.08s transform}.punch-btn:active{transform:scale(.98)}.punch-btn.small{min-height:76px;font-size:14px}.punch-btn .ico{font-size:27px}.punch-in{background:#10b981}.punch-out{background:#3b82f6}.break-start{background:#f59e0b}.break-end{background:#fef3c7;color:#78350f;border:2px solid #fcd34d}
+    .sync-cover{position:absolute;inset:0;background:rgba(255,255,255,.65);backdrop-filter:blur(1px);border-radius:18px;display:none;align-items:center;justify-content:center;z-index:5}.syncing .sync-cover{display:flex}.spinner{width:22px;height:22px;border:3px solid #c7d2fe;border-top-color:var(--indigo);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.relative{position:relative}.mini-btn{background:#f1f5f9;color:#64748b;border:1px solid var(--line);border-radius:9px;font-size:11px;font-weight:900;padding:7px 9px}.mini-btn:hover{background:#e2e8f0}.log-list{display:flex;flex-direction:column;gap:8px;max-height:245px;overflow:auto;padding-right:2px}.log-item{background:#f8fafc;border:1px solid #eef2f7;border-radius:12px;padding:10px;display:flex;justify-content:space-between;gap:8px;align-items:center}.log-main{min-width:0}.log-line{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.name{font-size:13px;font-weight:900}.tag{display:inline-flex;align-items:center;border-radius:7px;padding:3px 6px;font-size:10px;font-weight:900}.tag.in{background:#d1fae5;color:#065f46}.tag.out{background:#dbeafe;color:#1e40af}.tag.break{background:#fef3c7;color:#92400e}.transport{font-size:10px;font-weight:800;color:#475569;background:#e2e8f0;border-radius:6px;padding:2px 5px}.memo{font-size:11px;color:#64748b;margin:5px 0 0;line-height:1.4;word-break:break-word}.log-time{font-size:12px;color:#64748b;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}.delete-btn{background:transparent;color:#94a3b8;padding:6px;border-radius:8px}.delete-btn:hover{color:var(--rose);background:#fff1f2}.empty{text-align:center;color:#94a3b8;padding:20px 6px;font-size:13px;font-weight:700}
+    .month-select{max-width:165px;font-size:14px;color:var(--indigo);font-weight:950}.member-status{display:flex;flex-direction:column;gap:9px;max-height:270px;overflow:auto}.member-row{background:#f8fafc;border:1px solid var(--line);border-radius:14px;padding:11px 12px;display:flex;align-items:center;justify-content:space-between}.member-row b{display:block;font-size:13px}.member-row small{display:block;color:#94a3b8;font-size:10px;font-weight:800;margin-top:3px}.status-pill{border:1px solid;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:950}.work{background:#ecfdf5;color:#047857;border-color:#a7f3d0}.rest{background:#fffbeb;color:#b45309;border-color:#fde68a}.left{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}.none{background:#f1f5f9;color:#475569;border-color:#cbd5e1}
+    .stats-list{display:flex;flex-direction:column;gap:10px;max-height:480px;overflow:auto}.stat-card{background:#f8fafc;border:1px solid var(--line);border-radius:14px;padding:12px}.stat-head{display:flex;justify-content:space-between;gap:8px}.stat-name{font-size:13px;font-weight:950}.stat-name.over{color:var(--rose)}.stat-meta{font-size:10px;color:#64748b;font-weight:800;line-height:1.65}.stat-num{text-align:right}.stat-num b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--indigo);font-size:17px}.stat-num.over b{color:var(--rose)}.money{font-size:10px;color:#64748b;font-weight:800}.bar{height:7px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin-top:9px}.bar span{display:block;height:100%;background:var(--indigo);border-radius:99px}.bar span.warn{background:#f59e0b}.bar span.danger{background:#e11d48}.table-wrap{overflow:auto}.data-table{width:100%;border-collapse:collapse;font-size:12px}.data-table th{color:#94a3b8;text-align:left;font-size:10px;padding:0 6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}.data-table td{padding:9px 6px;border-bottom:1px solid #f1f5f9;vertical-align:top}.data-table td:last-child,.data-table th:last-child{text-align:right}.truncate{max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .admin-banner{background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:15px;padding:12px;display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:900}.notice{font-size:11px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:13px;padding:11px;line-height:1.6}.settings-list{border:1px solid var(--line);border-radius:14px;overflow:auto;max-height:350px}.settings-row{padding:11px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f1f5f9}.settings-row:last-child{border-bottom:0}.yen{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#f1f5f9;border-radius:8px;padding:5px 8px;font-size:12px;font-weight:950}.debug{font-size:11px;color:#64748b;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:10px;line-height:1.55;word-break:break-all;display:none}.debug.show{display:block}
+    .modal{position:fixed;inset:0;background:rgba(15,23,42,.62);backdrop-filter:blur(3px);z-index:100;display:none;align-items:center;justify-content:center;padding:18px}.modal.show{display:flex}.modal-box{background:#fff;border:1px solid var(--line);border-radius:26px;box-shadow:0 25px 50px rgba(15,23,42,.25);padding:20px;width:100%;max-width:380px}.modal-head{display:flex;align-items:center;gap:10px;border-radius:16px;padding:12px;margin-bottom:14px}.modal-head.info{background:#eef2ff;color:#3730a3}.modal-head.warn{background:#fff1f2;color:#be123c}.modal-head h4{margin:0;color:#1e293b;font-size:14px;font-weight:950}.confirm-box{background:#f8fafc;border:1px solid #eef2f7;border-radius:15px;padding:12px;font-size:13px;display:flex;flex-direction:column;gap:8px;margin-bottom:12px}.confirm-box span:last-child{font-weight:950}.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.btn{border-radius:13px;padding:12px 10px;font-size:13px;font-weight:950}.btn-gray{background:#f1f5f9;color:#475569}.btn-indigo{background:var(--indigo);color:#fff}.btn-rose{background:var(--rose);color:#fff}.err-text{font-size:11px;color:var(--rose);font-weight:800;text-align:center;margin-top:6px}.footer{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fff;border-top:1px solid var(--line);box-shadow:0 -8px 20px rgba(15,23,42,.06)}.footer-inner{max-width:480px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;padding:8px}.nav-btn{background:#fff;color:#94a3b8;border-radius:14px;padding:8px 3px;font-size:10px;font-weight:900;display:flex;flex-direction:column;align-items:center;gap:4px}.nav-btn.active{color:var(--indigo);background:#eef2ff}.nav-btn .nicon{font-size:19px}.startup{max-width:480px;margin:18px auto;background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;color:#475569;font-size:13px;line-height:1.6}.startup b{color:#1e293b}
+  </style>
+</head>
+<body>
+  <div id="app" class="app">
+    <header class="header">
+      <div class="header-inner">
+        <div class="brand">
+          <div class="brand-icon">⏱</div>
+          <div>
+            <h1>HW八王子事務所勤怠管理</h1>
+            <p>八王子事務所 <span id="syncText"></span></p>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <div id="runtimeError" class="status error"></div>
+      <section id="punchTab" class="tab stack fade">
+        <div class="card now-weather-card">
+          <div class="now-weather-head only-date">
+            <div id="currentDateLarge" class="now-weather-date">読み込み中...</div>
+          </div>
+          <div id="currentTimeLarge" class="large-clock">--:--:--</div>
+          <div class="weather-panel">
+            <div class="weather-left">
+              <div id="weatherIconLarge" class="weather-icon-large">☁️</div>
+              <div>
+                <div id="weatherConditionLarge" class="weather-condition-large">天気取得中...</div>
+              </div>
+            </div>
+            <div id="weatherTempLarge" class="weather-temp-large">--°C <span>/</span> --°C</div>
+          </div>
+        </div>
+        <div id="statusMessage" class="status"></div>
+        <div class="card">
+          <label for="selectedUser">あなたの名前を選択してください</label>
+          <select id="selectedUser"><option value="">-- 名前を選択 --</option></select>
+        </div>
+        <div id="transportCard" class="card hidden">
+          <h3 class="card-title">📅 本日の交通機関・連絡メモ</h3>
+          <div class="stack">
+            <div>
+              <p class="sub-title">交通機関（バス・電車のみ往復交通費をカウント）</p>
+              <div class="choice-grid">
+                <button id="transportBus" class="choice active" type="button">🚌 バス・電車</button>
+                <button id="transportBike" class="choice" type="button">🚲 自転車・他</button>
+              </div>
+            </div>
+            <div>
+              <p class="sub-title">備考欄・メモ</p>
+              <textarea id="punchMemo" class="textarea" placeholder="備考・連絡事項を入力してください（任意）"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 class="card-title">勤怠打刻ボタン</h3>
+          <div class="punch-grid">
+            <button class="punch-btn punch-in" data-punch="出勤" disabled><span class="ico">✅</span><span>出 勤</span></button>
+            <button class="punch-btn punch-out" data-punch="退勤" disabled><span class="ico">🚪</span><span>退 勤</span></button>
+            <button class="punch-btn small break-start" data-punch="休憩開始" disabled><span class="ico">☕</span><span>休憩 開始</span></button>
+            <button class="punch-btn small break-end" data-punch="休憩終了" disabled><span class="ico">⏱</span><span>休憩 終了</span></button>
+          </div>
+        </div>
+        <div id="recentCard" class="card relative">
+          <div class="sync-cover"><div class="spinner"></div></div>
+          <div class="row" style="margin-bottom:12px"><h3 class="card-title" style="margin:0">⏱ 直近の打刻ログ</h3><button id="refreshBtn" class="mini-btn">更新 ⟳</button></div>
+          <div id="recentLogs" class="log-list"></div>
+        </div>
+      </section>
+
+      <section id="dashboardTab" class="tab stack fade hidden">
+        <div id="dashboardStatus" class="status"></div>
+        <div class="card row"><span style="font-size:13px;font-weight:900;color:#475569">表示対象月を選択:</span><select id="selectedMonth" class="month-select"></select></div>
+        <div id="membersCard" class="card relative"><div class="sync-cover"><div class="spinner"></div></div><h3 class="card-title">👥 パート全員の「今」のステータス</h3><div id="memberStatus" class="member-status"></div></div>
+        <div id="statsCard" class="card relative"><div class="sync-cover"><div class="spinner"></div></div><div class="row" style="margin-bottom:12px"><h3 class="card-title" style="margin:0">📅 月 勤務＆交通費集計</h3><span style="font-size:10px;color:#64748b;font-weight:900;background:#f1f5f9;border-radius:9px;padding:6px 8px">目標 80H想定</span></div><div id="monthlyStats" class="stats-list"></div></div>
+        <div id="tableCard" class="card relative"><div class="sync-cover"><div class="spinner"></div></div><h3 class="card-title">🗄 スプシに溜まるログ</h3><div class="table-wrap"><table class="data-table"><thead><tr><th>名前</th><th>区分</th><th>交通機関/備考</th><th>日時</th><th>操作</th></tr></thead><tbody id="logsTable"></tbody></table></div></div>
+      </section>
+
+      <section id="settingsTab" class="tab stack fade hidden">
+        <div id="settingsStatus" class="status"></div>
+        <div id="loginCard" class="card">
+          <div style="text-align:center;margin-bottom:14px"><div style="font-size:30px">⚙️</div><h3 style="margin:6px 0 4px;font-size:18px">管理者認証</h3><p style="font-size:12px;color:#64748b;margin:0">設定を開くには、管理者パスワードを入力してください。</p></div>
+          <form id="adminLogin" class="stack"><input type="password" id="adminPassword" placeholder="パスワードを入力" style="text-align:center;font-size:18px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace"><button class="btn btn-indigo" type="submit">認証</button></form>
+        </div>
+        <div id="settingsContent" class="stack hidden">
+          <div class="admin-banner"><span>管理者認証中</span><button id="lockBtn" class="mini-btn">ロック</button></div>
+          <div class="card"><h3 class="card-title">👥 パート名簿 ＆ 往復交通費設定</h3><div class="notice">⚠️ <b>お知らせ</b><br>交通費の設定はスプレッドシートの個別勤務表（I1セル）の設定金額と自動連動します。金額を変更する場合は、スプレッドシート側を書き換えてください。</div><div id="settingsUsers" class="settings-list" style="margin-top:12px"></div></div>
+          <div class="card"><h3 class="card-title">🗄 スプレッドシート連携（GAS）</h3><input id="gasUrl" type="url"><p style="font-size:11px;color:#64748b;line-height:1.6;margin:10px 0 0">この画面を開く・更新するだけではスプレッドシートの既存データは変更されません。書き込みが発生するのは「打刻する」「削除を実行する」を押した時だけです。</p></div>
+          <div class="card"><h3 class="card-title">🛟 起動診断</h3><button id="showDebugBtn" class="mini-btn" type="button">診断情報を表示</button><div id="debugBox" class="debug"></div></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer"><div class="footer-inner"><button class="nav-btn active" data-tab="punch"><span class="nicon">⏱</span><span>打刻する</span></button><button class="nav-btn" data-tab="dashboard"><span class="nicon">👥</span><span>ダッシュボード</span></button><button class="nav-btn" data-tab="settings"><span class="nicon">⚙️</span><span>名簿・連携設定</span></button></div></footer>
+  </div>
+
+  <div id="confirmModal" class="modal"><div class="modal-box"><div class="modal-head info"><span style="font-size:22px">⏱</span><div><h4>打刻のご確認</h4><div style="font-size:11px;color:#64748b;font-weight:800">内容を今一度ご確認ください</div></div></div><div id="confirmDetails" class="confirm-box"></div><div class="modal-actions"><button id="cancelPunch" class="btn btn-gray">キャンセル</button><button id="executePunch" class="btn btn-indigo">はい、打刻する</button></div></div></div>
+  <div id="deleteModal" class="modal"><div class="modal-box"><div class="modal-head warn"><span style="font-size:22px">⚠️</span><div><h4>打刻取り消し確認</h4></div></div><div id="deleteDetails" class="confirm-box"></div><label for="deletePassword" style="font-size:11px">管理者パスワードを入力して削除を実行</label><input id="deletePassword" type="password" placeholder="パスワード" style="text-align:center"><div id="deletePasswordError" class="err-text hidden">パスワードが間違っています</div><div class="modal-actions"><button id="cancelDelete" class="btn btn-gray">やめる</button><button id="executeDelete" class="btn btn-rose">削除を実行する</button></div></div></div>
+
+  <noscript><div class="startup"><b>JavaScriptが無効です。</b><br>この勤怠管理画面を使うには、ブラウザのJavaScriptを有効にしてください。</div></noscript>
+
+  <script>
+  (function(){
+    'use strict';
+
+    const ADMIN_PASSWORD = '12345';
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxpTfsziHbGsM6kOXuPvlVQdnnufZ2RS_reX5NhoE0aOpra-RD5m8RBJXwEwc_34a-C/exec';
+    const DEFAULT_USERS = ['田中','長谷川','鈴木','牛嶋','喜多','池亀','松井','出村','橋本','住吉','戸部','村尾'];
+    const DAILY_TRIVIA = [
+      'カタツムリはコンクリートを食べる。殻を作るカルシウムを効率よく摂取するためです。 🐌',
+      'トランプの4つのマークには四季の意味があり、ダイヤは春、クローバーは夏、ハートは秋、スペードは冬を表しています。 🃏',
+      'フラミンゴの体が赤いのは、エサのエビや藻に含まれる色素によるもの。生まれたばかりの雛は実は真っ白です。 🦩',
+      '飛行機の窓の下の方に小さな穴が空いているのは、急激な気圧変化で窓ガラスが割れるのを防ぐ設計です。 ✈️',
+      'イルカは眠るとき、半分ずつ脳を交互に眠らせる「半球睡眠」を行います。 🐬',
+      'チョコレートの原料であるカカオ豆は、大昔のマヤ文明では通貨として使われていました。 🪙',
+      '人間は生まれたとき約300本以上の骨がありますが、大人になると約206本に減ります。 🦴',
+      '信号機の進めが「緑色」なのに「青」と呼ばれるのは、古い日本語で緑も青に含めていた名残です。 🚥',
+      '太陽の光が地球に届くまでには、約8分20秒の時間差があります。 ☀️',
+      '今日も一日、無理せず笑顔でお仕事頑張りましょう！ 🌟'
+    ];
+
+    const state = {
+      users: DEFAULT_USERS.slice(),
+      selectedUser: '',
+      gasUrl: safeGet('attendance_gas_url', DEFAULT_GAS_URL),
+      logs: sanitizeLogs(safeGet('attendance_logs', [])),
+      transportationCosts: safeObject(safeGet('attendance_transportation', {})),
+      punchTransport: 'バス・電車（交通費あり）',
+      punchMemo: '',
+      activeTab: 'punch',
+      selectedMonth: getCurrentMonth(),
+      isSyncing: false,
+      isAdminAuthenticated: false,
+      confirmPunch: null,
+      deleteTargetLog: null,
+      lastSyncError: '',
+      readOnlyStartup: true
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const $$ = (sel) => Array.prototype.slice.call(document.querySelectorAll(sel));
+    const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[s]));
+
+    window.addEventListener('error', (e) => showRuntimeError('JavaScriptエラー: ' + (e.message || e.error || '不明なエラー')));
+    window.addEventListener('unhandledrejection', (e) => showRuntimeError('通信または非同期処理エラー: ' + (e.reason && e.reason.message ? e.reason.message : e.reason || '不明なエラー')));
+
+    function safeGet(key, def){
+      try{ const raw = localStorage.getItem(key); if(raw === null || raw === '' || raw === '""') return def; return JSON.parse(raw); }catch(e){ return def; }
+    }
+    function safeSet(key, value){ try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){} }
+    function safeObject(v){ return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
+    function getCurrentMonth(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); }
+    function getJSTDateTime(){
+      const now = new Date();
+      const y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0'), d=String(now.getDate()).padStart(2,'0');
+      const hh=String(now.getHours()).padStart(2,'0'), mm=String(now.getMinutes()).padStart(2,'0'), ss=String(now.getSeconds()).padStart(2,'0');
+      return { full:`${y}-${m}-${d} ${hh}:${mm}:${ss}`, monthOnly:`${y}-${m}`, display:`${hh}:${mm}` };
+    }
+    function normalizeTimeString(value){
+      if(value == null) return '';
+      let s = String(value).trim();
+      if(!s) return '';
+      // Google Sheets sometimes returns ISO or Date string. Convert to local browser time.
+      const isoLike = /^\d{4}-\d{2}-\d{2}T/.test(s) || /GMT|UTC|\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(s);
+      if(isoLike){
+        const d = new Date(s);
+        if(!isNaN(d.getTime())) return formatDateTime(d);
+      }
+      s = s.replace(/\//g, '-');
+      if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s + ' 00:00:00';
+      if(/^\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2}$/.test(s)) return s.replace(/\s+/, ' ') + ':00';
+      if(/^\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2}:\d{2}/.test(s)) {
+        const parts = s.split(/\s+/);
+        const time = parts[1].split(':').map((x,i)=> i===0 ? String(x).padStart(2,'0') : x).join(':');
+        return parts[0] + ' ' + time.substring(0,8);
+      }
+      const parsed = new Date(s);
+      if(!isNaN(parsed.getTime())) return formatDateTime(parsed);
+      return s;
+    }
+    function formatDateTime(d){
+      const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+      const hh=String(d.getHours()).padStart(2,'0'), mm=String(d.getMinutes()).padStart(2,'0'), ss=String(d.getSeconds()).padStart(2,'0');
+      return `${y}-${m}-${day} ${hh}:${mm}:${ss}`;
+    }
+    function getDatePart(time){ const t = normalizeTimeString(time); return (t.split(' ')[0] || '').replace(/\//g,'-'); }
+    function getHHMM(time){ const t = normalizeTimeString(time); const part = (t.split(' ')[1] || ''); return part ? part.substring(0,5) : '--:--'; }
+    function getMonthFromTime(time){ const d = getDatePart(time); return /^\d{4}-\d{2}/.test(d) ? d.slice(0,7) : getCurrentMonth(); }
+    function timeMs(time){ const t = normalizeTimeString(time); const d = new Date(t.replace(/-/g,'/')); return isNaN(d.getTime()) ? 0 : d.getTime(); }
+    function formatWithDayOfWeek(time){
+      const t = normalizeTimeString(time); if(!t) return '';
+      const days = ['日','月','火','水','木','金','土'];
+      const datePart = getDatePart(t); const d = new Date(datePart.replace(/-/g,'/'));
+      if(isNaN(d.getTime())) return t;
+      return `${datePart.replace(/-/g,'/')}(${days[d.getDay()]}) ${getHHMM(t)}`;
+    }
+    function sanitizeLog(log, idx){
+      if(!log || typeof log !== 'object') return null;
+      const name = String(log.name || '').trim();
+      const type = String(log.type || '').trim();
+      const time = normalizeTimeString(log.time || log.timestamp || log.date || '');
+      if(!name || !type || !time) return null;
+      return {
+        id: String(log.id || log.ID || log.rowId || `${name}-${type}-${time}-${idx || 0}`),
+        name, type, time,
+        month: String(log.month || getMonthFromTime(time)),
+        transport: String(log.transport || ''),
+        memo: String(log.memo || '')
+      };
+    }
+    function sanitizeLogs(arr){
+      if(!Array.isArray(arr)) return [];
+      return arr.map(sanitizeLog).filter(Boolean).sort((a,b)=>timeMs(b.time)-timeMs(a.time));
+    }
+
+    function showRuntimeError(msg){
+      const box = $('runtimeError'); if(!box) return;
+      box.textContent = msg;
+      box.className = 'status error show';
+    }
+    function showStatus(text, type='info'){
+      const id = state.activeTab === 'settings' ? 'settingsStatus' : state.activeTab === 'dashboard' ? 'dashboardStatus' : 'statusMessage';
+      const box = $(id) || $('statusMessage');
+      box.textContent = text;
+      box.className = 'status ' + type + ' show';
+      clearTimeout(showStatus._timer);
+      showStatus._timer = setTimeout(()=>{ box.className = 'status'; box.textContent=''; }, 5000);
+    }
+    function setSyncing(v){
+      state.isSyncing = !!v;
+      $('syncText').textContent = v ? '同期中...' : '';
+      ['recentCard','membersCard','statsCard','tableCard'].forEach(id => { const el=$(id); if(el) el.classList.toggle('syncing', !!v); });
+    }
+
+    function init(){
+      try{
+        bindEvents();
+        renderAll();
+        startClock();
+        fetchWeather();
+        syncLogsFromGAS('startup');
+      }catch(e){ showRuntimeError('起動エラー: ' + (e && e.message ? e.message : e)); }
+    }
+
+    function bindEvents(){
+      $('selectedUser').addEventListener('change', e=>{ state.selectedUser=e.target.value; renderPunch(); });
+      $('transportBus').addEventListener('click', ()=>{ state.punchTransport='バス・電車（交通費あり）'; renderTransportChoice(); });
+      $('transportBike').addEventListener('click', ()=>{ state.punchTransport='自転車・その他（支給なし）'; renderTransportChoice(); });
+      $('punchMemo').addEventListener('input', e=>{ state.punchMemo=e.target.value; });
+      $$('.punch-btn').forEach(btn=>btn.addEventListener('click', ()=>triggerPunchConfirmation(btn.dataset.punch)));
+      $('refreshBtn').addEventListener('click', ()=>syncLogsFromGAS('manual'));
+      $$('.nav-btn').forEach(btn=>btn.addEventListener('click', ()=>setActiveTab(btn.dataset.tab)));
+      $('selectedMonth').addEventListener('change', e=>{ state.selectedMonth=e.target.value; renderDashboard(); });
+      $('adminLogin').addEventListener('submit', handleAdminLogin);
+      $('lockBtn').addEventListener('click', ()=>{ state.isAdminAuthenticated=false; $('adminPassword').value=''; renderSettings(); });
+      $('gasUrl').addEventListener('change', e=>{ state.gasUrl = e.target.value.trim(); safeSet('attendance_gas_url', state.gasUrl); showStatus('GAS URLを保存しました。', 'success'); syncLogsFromGAS('url-change'); });
+      $('cancelPunch').addEventListener('click', closePunchModal);
+      $('executePunch').addEventListener('click', executePunch);
+      $('cancelDelete').addEventListener('click', closeDeleteModal);
+      $('executeDelete').addEventListener('click', confirmDeleteLog);
+      $('deletePassword').addEventListener('input', ()=> $('deletePasswordError').classList.add('hidden'));
+      $('showDebugBtn').addEventListener('click', toggleDebug);
+    }
+    function startClock(){
+      const tick = () => {
+        const days=['日','月','火','水','木','金','土']; const now=new Date();
+        const y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0'), d=String(now.getDate()).padStart(2,'0'), w=days[now.getDay()];
+        const hh=String(now.getHours()).padStart(2,'0'), mm=String(now.getMinutes()).padStart(2,'0'), ss=String(now.getSeconds()).padStart(2,'0');
+        const headerTime = $('currentTime');
+        if (headerTime) headerTime.textContent = `${y}/${m}/${d}(${w}) ${hh}:${mm}:${ss}`;
+        const largeTime = $('currentTimeLarge');
+        const largeDate = $('currentDateLarge');
+        if (largeTime) largeTime.textContent = `${hh}:${mm}:${ss}`;
+        if (largeDate) largeDate.textContent = `${y}/${m}/${d}(${w})`;
+      };
+      tick(); setInterval(tick, 1000);
+    }
+
+    function weatherInfoFromCode(code){
+      // Open-Meteo / WMO weather code
+      if(code === 0) return { condition:'快晴', emoji:'☀️' };
+      if([1].includes(code)) return { condition:'晴れ', emoji:'🌤️' };
+      if([2].includes(code)) return { condition:'一部曇り', emoji:'⛅' };
+      if([3].includes(code)) return { condition:'曇り', emoji:'☁️' };
+      if([45,48].includes(code)) return { condition:'霧', emoji:'🌫️' };
+      if([51,53,55,56,57].includes(code)) return { condition:'霧雨', emoji:'🌦️' };
+      if([61,63,65,66,67].includes(code)) return { condition:'雨', emoji:'☔' };
+      if([71,73,75,77].includes(code)) return { condition:'雪', emoji:'❄️' };
+      if([80,81,82].includes(code)) return { condition:'にわか雨', emoji:'🌦️' };
+      if([85,86].includes(code)) return { condition:'にわか雪', emoji:'🌨️' };
+      if([95,96,99].includes(code)) return { condition:'雷雨', emoji:'⛈️' };
+      return { condition:'曇り', emoji:'☁️' };
+    }
+
+    async function fetchWeather(){
+      try{
+        // 八王子市中心部付近の緯度経度。
+        // dailyの代表天気ではなく、currentの現在天気を優先して表示する。
+        const url = 'https://api.open-meteo.com/v1/forecast?latitude=35.6595&longitude=139.3239&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=Asia%2FTokyo';
+        const res = await fetch(url, { cache: 'no-store' });
+        if(!res.ok) throw new Error('天気取得失敗');
+
+        const data = await res.json();
+        const current = data.current || {};
+        const daily = data.daily || {};
+
+        const code = Number.isFinite(Number(current.weather_code)) ? Number(current.weather_code) : 3;
+        const currentTemp = Number.isFinite(Number(current.temperature_2m)) ? Math.round(Number(current.temperature_2m)) : null;
+        const max = Array.isArray(daily.temperature_2m_max) && Number.isFinite(Number(daily.temperature_2m_max[0])) ? Math.round(Number(daily.temperature_2m_max[0])) : null;
+        const min = Array.isArray(daily.temperature_2m_min) && Number.isFinite(Number(daily.temperature_2m_min[0])) ? Math.round(Number(daily.temperature_2m_min[0])) : null;
+
+        const info = weatherInfoFromCode(code);
+        const iconEl = $('weatherIconLarge');
+        const conditionEl = $('weatherConditionLarge');
+        const tempEl = $('weatherTempLarge');
+
+        if (iconEl) iconEl.textContent = info.emoji;
+        if (conditionEl) conditionEl.textContent = info.condition;
+        if (tempEl) {
+          const currentPart = currentTemp === null ? '--°C' : `現在 ${currentTemp}°C`;
+          const rangePart = (max === null || min === null) ? '' : ` <span>/</span> 最高${max}° 最低${min}°`;
+          tempEl.innerHTML = currentPart + rangePart;
+        }
+      }catch(e){
+        const iconEl = $('weatherIconLarge');
+        const conditionEl = $('weatherConditionLarge');
+        const tempEl = $('weatherTempLarge');
+        if (iconEl) iconEl.textContent = '☁️';
+        if (conditionEl) conditionEl.textContent = '天気取得不可';
+        if (tempEl) tempEl.innerHTML = '現在 --°C <span>/</span> 最高--° 最低--°';
+      }
+    }
+
+    function buildGasUrl(params){
+      const payload = new URLSearchParams(params);
+      const sep = state.gasUrl && state.gasUrl.includes('?') ? '&' : '?';
+      return state.gasUrl + sep + payload.toString();
+    }
+
+    function applyGasReadData(data){
+      if(!data || typeof data !== 'object') throw new Error('GASの返答が空、またはオブジェクト形式ではありません。');
+
+      // GAS側が {success:true,data:{logs:[...]}} のような形で返す場合にも対応
+      const body = data.data && typeof data.data === 'object' ? data.data : data;
+      const rawLogs = Array.isArray(body.logs) ? body.logs : (Array.isArray(body.records) ? body.records : []);
+
+      if(Array.isArray(rawLogs)){
+        const cleaned = sanitizeLogs(rawLogs);
+        state.logs = cleaned;
+        safeSet('attendance_logs', cleaned);
+      }
+      if(body.transportationCosts && typeof body.transportationCosts === 'object'){
+        state.transportationCosts = body.transportationCosts;
+        safeSet('attendance_transportation', body.transportationCosts);
+      }
+    }
+
+    function timeoutPromise(promise, ms, label){
+      let timer;
+      const timeout = new Promise((_, reject)=>{
+        timer = setTimeout(()=>reject(new Error(label + 'がタイムアウトしました。')), ms);
+      });
+      return Promise.race([promise, timeout]).finally(()=>clearTimeout(timer));
+    }
+
+    async function readGASViaFetch(url){
+      const response = await fetch(url, {
+        method:'GET',
+        cache:'no-store',
+        redirect:'follow',
+        credentials:'omit',
+        headers:{ 'Accept':'application/json,text/plain,*/*' }
+      });
+      const text = await response.text();
+      if(!response.ok) throw new Error('GAS HTTPエラー: ' + response.status + ' ' + text.slice(0,120));
+      try{ return JSON.parse(text); }
+      catch(parseErr){
+        const shortText = text.replace(/\s+/g,' ').slice(0,180);
+        throw new Error('GASの返答がJSONではありません: ' + shortText);
+      }
+    }
+
+    function readGASViaJSONP(url){
+      return new Promise((resolve, reject)=>{
+        const callbackName = '__hwaGasCallback_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+        const script = document.createElement('script');
+        const cleanup = () => {
+          try{ delete window[callbackName]; }catch(e){ window[callbackName] = undefined; }
+          if(script && script.parentNode) script.parentNode.removeChild(script);
+        };
+
+        window[callbackName] = (data) => {
+          cleanup();
+          resolve(data);
+        };
+
+        script.onerror = () => {
+          cleanup();
+          reject(new Error('JSONP読み取りに失敗しました。GAS側がcallbackパラメータに対応していない可能性があります。'));
+        };
+
+        script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + encodeURIComponent(callbackName);
+        document.head.appendChild(script);
+      });
+    }
+
+    async function syncLogsFromGAS(reason){
+      if(!state.gasUrl) { renderAll(); return; }
+      setSyncing(true);
+      const url = buildGasUrl({ action:'read', t:Date.now() });
+      const errors = [];
+
+      try{
+        let data = null;
+
+        // 1. GAS WebアプリはCORSで通常fetchが失敗しやすいため、JSONPを優先する。
+        //    GAS側 doGet(e) が callback パラメータに対応していれば、Netlify/Safariでも安定する。
+        try{
+          data = await timeoutPromise(readGASViaJSONP(url), 9000, 'GAS JSONP同期');
+        }catch(e1){
+          errors.push('JSONP: ' + (e1 && e1.message ? e1.message : String(e1)));
+        }
+
+        // 2. JSONP非対応の古いGASでも、CORS許可済みなら通常fetchで読める可能性があるため保険で試す。
+        if(!data){
+          try{
+            data = await timeoutPromise(readGASViaFetch(url), 9000, 'GAS通常同期');
+          }catch(e2){
+            errors.push('通常fetch: ' + (e2 && e2.message ? e2.message : String(e2)));
+          }
+        }
+
+        if(!data) throw new Error(errors.join(' / '));
+        applyGasReadData(data);
+        state.lastSyncError = '';
+        if(reason === 'manual') showStatus('GAS同期が完了しました。', 'success');
+      }catch(e){
+        state.lastSyncError = e && e.message ? e.message : String(e);
+        // 読み取り失敗時も、ローカルに残っている正常ログで画面は表示する。
+        // 画面全体は止めず、詳細は設定タブの「起動診断」で確認できるようにする。
+        if(reason === 'manual' || state.activeTab !== 'punch') {
+          showStatus('GAS同期に失敗しました。設定タブの「起動診断」で詳細を確認できます。', 'error');
+        }
+      }finally{
+        setSyncing(false);
+        renderAll();
+      }
+    }
+
+    function sendGASWrite(params){
+      if(!state.gasUrl) return Promise.resolve();
+      const url = buildGasUrl(Object.assign({}, params, { t:Date.now() }));
+
+      // 書き込みは返答を読まないため no-cors で送信。失敗時は画像リクエストで再送する。
+      return timeoutPromise(fetch(url, { method:'GET', mode:'no-cors', cache:'no-store', keepalive:true }), 7000, 'GAS書き込み')
+        .catch(e => new Promise((resolve) => {
+          state.lastSyncError = e && e.message ? e.message : String(e);
+          const img = new Image();
+          img.onload = img.onerror = () => resolve();
+          img.src = url + '&_imgFallback=1';
+          setTimeout(resolve, 3000);
+        }));
+    }
+
+    function renderAll(){ renderPunch(); renderDashboard(); renderSettings(); }
+    function renderPunch(){
+      const select = $('selectedUser');
+      if(select.options.length <= 1){ state.users.forEach(name=>{ const opt=document.createElement('option'); opt.value=name; opt.textContent=name; select.appendChild(opt); }); }
+      select.value = state.selectedUser;
+      $('transportCard').classList.toggle('hidden', !state.selectedUser);
+      $$('.punch-btn').forEach(btn => btn.disabled = !state.selectedUser);
+      renderTransportChoice();
+      renderRecentLogs();
+    }
+    function renderTransportChoice(){
+      $('transportBus').classList.toggle('active', state.punchTransport.indexOf('バス')===0);
+      $('transportBike').classList.toggle('active', state.punchTransport.indexOf('自転車')===0);
+      $('punchMemo').value = state.punchMemo;
+    }
+    function logTag(type){ return type==='出勤'?'in':type==='退勤'?'out':'break'; }
+    function renderRecentLogs(){
+      const box = $('recentLogs');
+      const recent = state.logs.slice(0,8);
+      if(!recent.length){ box.innerHTML = '<div class="empty">まだ打刻はありません。</div>'; return; }
+      box.innerHTML = recent.map(log => `
+        <div class="log-item">
+          <div class="log-main"><div class="log-line"><span class="name">${esc(log.name)}</span><span class="tag ${logTag(log.type)}">${esc(log.type)}</span>${log.type==='出勤' && log.transport ? `<span class="transport">${log.transport.indexOf('バス')===0?'🚌 バス・電車':'🚲 自転車'}</span>`:''}</div>${log.memo ? `<p class="memo">Memo: ${esc(log.memo)}</p>`:''}</div>
+          <div class="row" style="gap:4px"><span class="log-time">${esc(getHHMM(log.time))}</span><button class="delete-btn" data-delete-id="${esc(log.id)}" title="削除">🗑</button></div>
+        </div>`).join('');
+      box.querySelectorAll('[data-delete-id]').forEach(btn=>btn.addEventListener('click', ()=>requestDeleteLog(btn.dataset.deleteId)));
+    }
+
+    function setActiveTab(tab){
+      state.activeTab = tab;
+      $$('.tab').forEach(el=>el.classList.add('hidden'));
+      $(tab+'Tab').classList.remove('hidden');
+      $$('.nav-btn').forEach(btn=>btn.classList.toggle('active', btn.dataset.tab === tab));
+      if(tab === 'dashboard' || tab === 'punch') syncLogsFromGAS('tab'); else renderSettings();
+    }
+
+    function getUserCurrentStatus(name){
+      const userLogs = state.logs.filter(l=>l.name === name).sort((a,b)=>timeMs(b.time)-timeMs(a.time));
+      if(!userLogs.length) return {status:'未出勤', time:'-', rawType:'', cls:'none'};
+      const latest = userLogs[0];
+      if(latest.type === '出勤' || latest.type === '休憩終了') return {status:'勤務中', time:getHHMM(latest.time), rawType:latest.type, cls:'work'};
+      if(latest.type === '休憩開始') return {status:'休憩中', time:getHHMM(latest.time), rawType:latest.type, cls:'rest'};
+      if(latest.type === '退勤') return {status:'退勤済', time:getHHMM(latest.time), rawType:latest.type, cls:'left'};
+      return {status:'未出勤', time:getHHMM(latest.time), rawType:latest.type, cls:'none'};
+    }
+    function calculateMonthlyStats(month){
+      const stats = {}; state.users.forEach(n=>stats[n]={totalMinutes:0,daysCount:0,paidTransportDays:0});
+      const groups = {};
+      state.logs.filter(l=>l.month === month).forEach(log=>{
+        const date = getDatePart(log.time); if(!groups[log.name]) groups[log.name]={}; if(!groups[log.name][date]) groups[log.name][date]=[]; groups[log.name][date].push(log);
+      });
+      Object.keys(groups).forEach(name=>{
+        let minutes=0, days=0, paid=0;
+        Object.keys(groups[name]).forEach(date=>{
+          const dayLogs = groups[name][date].sort((a,b)=>timeMs(a.time)-timeMs(b.time));
+          const find = type => dayLogs.find(l=>l.type===type);
+          const pin = find('出勤'), pout = find('退勤'), bs = find('休憩開始'), be = find('休憩終了');
+          if(pin){
+            days++;
+            if(pin.transport && pin.transport.indexOf('バス')===0) paid++;
+            const inMs=timeMs(pin.time), outMs=pout?timeMs(pout.time):0;
+            if(outMs && outMs > inMs){
+              let dayMs = outMs - inMs;
+              if(bs && be && timeMs(be.time) > timeMs(bs.time)) dayMs -= (timeMs(be.time)-timeMs(bs.time));
+              minutes += Math.max(0, Math.floor(dayMs/60000));
+            }
+          }
+        });
+        if(stats[name]){stats[name].totalMinutes=minutes;stats[name].daysCount=days;stats[name].paidTransportDays=paid;}
+      });
+      return stats;
+    }
+    function renderDashboard(){
+      const months = Array.from(new Set(state.logs.map(l=>l.month).filter(Boolean))).sort().reverse();
+      if(!months.includes(state.selectedMonth)) months.unshift(state.selectedMonth);
+      $('selectedMonth').innerHTML = months.map(m=>`<option value="${esc(m)}">${esc(m.replace('-','年'))}月</option>`).join('');
+      $('selectedMonth').value = state.selectedMonth;
+      const title = $('statsCard').querySelector('.card-title'); if(title) title.textContent = `📅 ${state.selectedMonth.replace('-','年')}月 勤務＆交通費集計`;
+      $('memberStatus').innerHTML = state.users.map(name=>{ const c=getUserCurrentStatus(name); return `<div class="member-row"><div><b>${esc(name)} さん</b><small>最終打刻: ${c.time !== '-' ? `${esc(c.time)} (${esc(c.rawType)})` : '打刻なし'}</small></div><span class="status-pill ${c.cls}">${esc(c.status)}</span></div>`; }).join('');
+      const stats = calculateMonthlyStats(state.selectedMonth);
+      $('monthlyStats').innerHTML = state.users.map(name=>{
+        const st=stats[name]||{totalMinutes:0,daysCount:0,paidTransportDays:0}; const h=Math.floor(st.totalMinutes/60), m=st.totalMinutes%60, over=h>=80, ratio=Math.min(100, Math.round((st.totalMinutes/(80*60))*100));
+        const dailyCost = Number(state.transportationCosts[name]||0); const totalTransport = dailyCost * st.paidTransportDays; const barCls = over ? 'danger' : ratio >= 80 ? 'warn' : '';
+        return `<div class="stat-card"><div class="stat-head"><div><span class="stat-name ${over?'over':''}">${esc(name)} さん</span><div class="stat-meta">総出勤実績: ${st.daysCount} 日<br>バス・電車支給日: ${st.paidTransportDays} 日</div></div><div class="stat-num ${over?'over':''}"><div><b>${h}</b>時間 <b>${m}</b>分</div><div class="money">交通費: ¥${totalTransport.toLocaleString()} <span style="color:#94a3b8">(往復 ¥${dailyCost.toLocaleString()})</span></div></div></div><div class="bar"><span class="${barCls}" style="width:${st.totalMinutes>0?Math.max(3,ratio):0}%"></span></div></div>`;
+      }).join('');
+      const filtered = state.logs.filter(l=>l.month === state.selectedMonth);
+      $('logsTable').innerHTML = filtered.length ? filtered.map(log=>`<tr><td><b>${esc(log.name)}</b></td><td><span class="tag ${logTag(log.type)}">${esc(log.type)}</span></td><td>${log.type==='出勤' && log.transport ? `<span class="transport">${log.transport.indexOf('バス')===0?'🚌 バス・電車':'🚲 自転車'}</span>`:''}${log.memo?`<div class="memo truncate" title="${esc(log.memo)}">${esc(log.memo)}</div>`:''}</td><td style="white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#64748b">${esc(formatWithDayOfWeek(log.time))}</td><td><button class="delete-btn" data-delete-id="${esc(log.id)}">🗑</button></td></tr>`).join('') : `<tr><td colspan="5" class="empty">${esc(state.selectedMonth.replace('-','年'))}月のデータはありません。</td></tr>`;
+      $('logsTable').querySelectorAll('[data-delete-id]').forEach(btn=>btn.addEventListener('click', ()=>requestDeleteLog(btn.dataset.deleteId)));
+    }
+
+    function renderSettings(){
+      $('loginCard').classList.toggle('hidden', state.isAdminAuthenticated);
+      $('settingsContent').classList.toggle('hidden', !state.isAdminAuthenticated);
+      $('gasUrl').value = state.gasUrl || '';
+      $('settingsUsers').innerHTML = state.users.map(name=>`<div class="settings-row"><b>${esc(name)}</b><div><span style="font-size:10px;color:#94a3b8;font-weight:900">往復交通費:</span> <span class="yen">¥${Number(state.transportationCosts[name]||0).toLocaleString()}</span></div></div>`).join('');
+    }
+    function handleAdminLogin(e){
+      e.preventDefault();
+      if($('adminPassword').value === ADMIN_PASSWORD){ state.isAdminAuthenticated=true; $('adminPassword').value=''; renderSettings(); showStatus('管理者メニューを認証しました。','success'); }
+      else { showStatus('パスワードが正しくありません。','error'); }
+    }
+    function toggleDebug(){
+      const box = $('debugBox'); box.classList.toggle('show');
+      box.innerHTML = `<b>起動診断</b><br>ログ件数: ${state.logs.length}<br>GAS URL: ${esc(state.gasUrl ? '設定あり' : '未設定')}<br>GAS同期方式: JSONP優先 / fetch保険<br>最後のGAS同期エラー: ${esc(state.lastSyncError || 'なし')}<br>localStorageログ: ${esc(String((localStorage.getItem('attendance_logs')||'').slice(0,180)))}${(localStorage.getItem('attendance_logs')||'').length>180?'...':''}`;
+    }
+
+    function triggerPunchConfirmation(type){
+      if(!state.selectedUser){ showStatus('名前を選択してください。','error'); return; }
+      state.confirmPunch = { userName:state.selectedUser, punchType:type, transport:(type==='出勤'||type==='退勤')?state.punchTransport:'', memo:(type==='出勤'||type==='退勤')?state.punchMemo:'' };
+      $('confirmDetails').innerHTML = `<div class="row"><span>お名前:</span><span>${esc(state.confirmPunch.userName)} さん</span></div><div class="row"><span>打刻区分:</span><span>${esc(type)}</span></div>${type==='出勤'?`<div class="row"><span>本日の交通機関:</span><span>${state.punchTransport.indexOf('バス')===0?'🚌 バス・電車利用':'🚲 自転車等'}</span></div>`:''}${state.confirmPunch.memo?`<div><span>連絡メモ・備考:</span><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:8px;margin-top:5px;word-break:break-word">${esc(state.confirmPunch.memo)}</div></div>`:''}`;
+      $('confirmModal').classList.add('show');
+    }
+    function closePunchModal(){ state.confirmPunch=null; $('confirmModal').classList.remove('show'); }
+    async function executePunch(){
+      if(!state.confirmPunch) return;
+      const {userName,punchType,transport,memo} = state.confirmPunch;
+      closePunchModal();
+      const jst=getJSTDateTime();
+      const newLog = sanitizeLog({id:Date.now().toString(), name:userName, type:punchType, time:jst.full, month:jst.monthOnly, transport:transport||'', memo:memo||''}, 0);
+      state.logs = sanitizeLogs([newLog].concat(state.logs));
+      safeSet('attendance_logs', state.logs);
+      if(punchType==='出勤' || punchType==='退勤'){ state.punchMemo=''; $('punchMemo').value=''; }
+      renderAll();
+      showStatus(`${userName}さん: [${punchType}] を記録しました (${jst.display})`, 'success');
+      await sendGASWrite({ name:newLog.name, type:newLog.type, time:newLog.time, month:newLog.month, transport:newLog.transport, memo:newLog.memo, action:'add' });
+      setTimeout(()=>syncLogsFromGAS('after-add'), 1800);
+    }
+
+    function requestDeleteLog(id){
+      const log = state.logs.find(l=>l.id === id); if(!log) return;
+      state.deleteTargetLog = log;
+      $('deleteDetails').innerHTML = `<div>メンバー: <b>${esc(log.name)}さん</b></div><div>区分: <b>${esc(log.type)}</b></div><div>時間: <b>${esc(formatWithDayOfWeek(log.time))}</b></div>`;
+      $('deletePassword').value = ''; $('deletePasswordError').classList.add('hidden');
+      $('deleteModal').classList.add('show');
+    }
+    function closeDeleteModal(){ state.deleteTargetLog=null; $('deleteModal').classList.remove('show'); }
+    async function confirmDeleteLog(){
+      if(!state.deleteTargetLog) return;
+      if($('deletePassword').value !== ADMIN_PASSWORD){ $('deletePasswordError').classList.remove('hidden'); return; }
+      const target = state.deleteTargetLog;
+      state.logs = state.logs.filter(l=>l.id !== target.id);
+      safeSet('attendance_logs', state.logs);
+      closeDeleteModal();
+      renderAll();
+      showStatus(`${target.name}さんの[${target.type}]を取り消しました。`, 'success');
+      await sendGASWrite({ id:target.id, name:target.name, time:target.time, action:'delete' });
+      setTimeout(()=>syncLogsFromGAS('after-delete'), 1600);
+    }
+
+    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+  })();
+  </script>
+</body>
+</html>
