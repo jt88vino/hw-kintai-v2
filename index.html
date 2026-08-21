@@ -290,6 +290,10 @@
         startClock();
         fetchWeather();
         syncLogsFromGAS('startup');
+        // 別端末で名簿が変わった場合も、開きっぱなしの画面へ自動反映する。
+        setInterval(()=>{
+          if(!document.hidden && !state.isSyncing) syncLogsFromGAS('auto');
+        }, 60000);
       }catch(e){ showRuntimeError('起動エラー: ' + (e && e.message ? e.message : e)); }
     }
 
@@ -312,6 +316,9 @@
       $('executeDelete').addEventListener('click', confirmDeleteLog);
       $('deletePassword').addEventListener('input', ()=> $('deletePasswordError').classList.add('hidden'));
       $('showDebugBtn').addEventListener('click', toggleDebug);
+      document.addEventListener('visibilitychange', ()=>{
+        if(!document.hidden && !state.isSyncing) syncLogsFromGAS('visible');
+      });
     }
     function startClock(){
       const tick = () => {
@@ -463,33 +470,70 @@
       });
     }
 
+    async function readGASDataOnce(url){
+      const errors = [];
+      try{
+        return await timeoutPromise(readGASViaJSONP(url), 9000, 'GAS JSONP同期');
+      }catch(e1){
+        errors.push('JSONP: ' + (e1 && e1.message ? e1.message : String(e1)));
+      }
+
+      try{
+        return await timeoutPromise(readGASViaFetch(url), 9000, 'GAS通常同期');
+      }catch(e2){
+        errors.push('通常fetch: ' + (e2 && e2.message ? e2.message : String(e2)));
+      }
+
+      throw new Error(errors.join(' / '));
+    }
+
+    function wait(ms){
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function waitForRosterUpdate(action, name){
+      let lastError = null;
+
+      for(let attempt = 0; attempt < 6; attempt++){
+        if(attempt > 0) await wait(900 + attempt * 250);
+
+        try{
+          const data = await readGASDataOnce(buildGasUrl({
+            action:'read',
+            t:Date.now(),
+            rosterConfirm:attempt
+          }));
+          const body = data && data.data && typeof data.data === 'object' ? data.data : data;
+          const users = sanitizeUsers(body && body.users);
+          const completed = action === 'addUser' ? users.includes(name) : !users.includes(name);
+
+          if(completed){
+            applyGasReadData(body);
+            return Object.assign({}, body, {
+              ok:true,
+              action:action,
+              message:action === 'addUser'
+                ? `${name}さんを名簿に追加しました。`
+                : `${name}さんを名簿から削除しました。個別勤務表と過去ログは退避・保持されています。`
+            });
+          }
+        }catch(err){
+          lastError = err;
+        }
+      }
+
+      throw new Error(lastError && lastError.message
+        ? 'GASへの変更後、名簿の再確認に失敗しました: ' + lastError.message
+        : 'GASへの変更が名簿に反映されたことを確認できませんでした。');
+    }
+
     async function syncLogsFromGAS(reason){
       if(!state.gasUrl) { renderAll(); return; }
       setSyncing(true);
       const url = buildGasUrl({ action:'read', t:Date.now() });
-      const errors = [];
 
       try{
-        let data = null;
-
-        // 1. GAS WebアプリはCORSで通常fetchが失敗しやすいため、JSONPを優先する。
-        //    GAS側 doGet(e) が callback パラメータに対応していれば、Netlify/Safariでも安定する。
-        try{
-          data = await timeoutPromise(readGASViaJSONP(url), 9000, 'GAS JSONP同期');
-        }catch(e1){
-          errors.push('JSONP: ' + (e1 && e1.message ? e1.message : String(e1)));
-        }
-
-        // 2. JSONP非対応の古いGASでも、CORS許可済みなら通常fetchで読める可能性があるため保険で試す。
-        if(!data){
-          try{
-            data = await timeoutPromise(readGASViaFetch(url), 9000, 'GAS通常同期');
-          }catch(e2){
-            errors.push('通常fetch: ' + (e2 && e2.message ? e2.message : String(e2)));
-          }
-        }
-
-        if(!data) throw new Error(errors.join(' / '));
+        const data = await readGASDataOnce(url);
         applyGasReadData(data);
         state.lastSyncError = '';
         if(reason === 'manual') showStatus('GAS同期が完了しました。', 'success');
@@ -524,12 +568,23 @@
     async function sendGASAdminAction(params){
       if(!state.gasUrl) throw new Error('GAS URLが設定されていません。');
       const url = buildGasUrl(Object.assign({}, params, { adminPassword:ADMIN_PASSWORD, t:Date.now() }));
-      const data = await timeoutPromise(readGASViaJSONP(url), 25000, '名簿の同期');
-      const body = data && data.data && typeof data.data === 'object' ? data.data : data;
-      if(!body || body.ok !== true){
-        throw new Error(body && body.message ? body.message : 'GASで名簿を更新できませんでした。');
-      }
-      return body;
+
+      // 書き込み結果をJSONPで待つと、処理成功後に応答だけ失敗して画面が古いまま残ることがある。
+      // そのため書き込みを一度だけ送り、readで名簿の実状態を確認してから画面を更新する。
+      await timeoutPromise(fetch(url, {
+        method:'GET',
+        mode:'no-cors',
+        cache:'no-store',
+        keepalive:true
+      }), 12000, '名簿の書き込み');
+
+      const result = await timeoutPromise(
+        waitForRosterUpdate(params.action, String(params.name || '').trim()),
+        30000,
+        '名簿の反映確認'
+      );
+      state.lastSyncError = '';
+      return result;
     }
 
     function renderAll(){ renderPunch(); renderDashboard(); renderSettings(); }
