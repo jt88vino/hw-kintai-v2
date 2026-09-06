@@ -147,7 +147,20 @@ function addLog_(sheet, params) {
       };
     }
 
-    const logId = params.id || new Date().getTime().toString();
+    // HTML側が発行したIDをそのまま保存する。同一リクエストが再送されても、
+    // 同じIDまたは同じ打刻内容なら二重登録しない。
+    const logId = String(params.requestId || params.id || new Date().getTime());
+    const existingLogId = findExistingLogId_(sheet, logId, name, type, time);
+    if (existingLogId) {
+      return {
+        ok: true,
+        action: "add",
+        id: existingLogId,
+        duplicate: true,
+        message: "すでに登録済みのため、重複登録を防止しました。"
+      };
+    }
+
     sheet.appendRow([
       new Date(),
       name,
@@ -169,6 +182,29 @@ function addLog_(sheet, params) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * 同じ送信ID、または名前・区分・打刻日時が完全一致する行を探す。
+ * 通信遅延による同一URLの再送を安全に1件へまとめる。
+ */
+function findExistingLogId_(sheet, logId, name, type, time) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return "";
+
+  const rows = sheet.getRange(2, 1, lastRow - 1, MASTER_HEADERS.length).getDisplayValues();
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i];
+    const rowId = row[5] ? String(row[5]) : "";
+    const sameId = rowId && rowId === logId;
+    const samePunch = row[1] === name && row[2] === type && row[3] === time;
+
+    if (sameId || samePunch) {
+      return rowId || logId;
+    }
+  }
+
+  return "";
 }
 
 /**

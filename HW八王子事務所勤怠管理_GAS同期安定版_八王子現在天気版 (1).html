@@ -172,6 +172,7 @@
       activeTab: 'punch',
       selectedMonth: getCurrentMonth(),
       isSyncing: false,
+      isPunchSubmitting: false,
       isAdminAuthenticated: false,
       confirmPunch: null,
       deleteTargetLog: null,
@@ -595,7 +596,7 @@
       state.users.forEach(name=>{ const opt=document.createElement('option'); opt.value=name; opt.textContent=name; select.appendChild(opt); });
       select.value = state.selectedUser;
       $('transportCard').classList.toggle('hidden', !state.selectedUser);
-      $$('.punch-btn').forEach(btn => btn.disabled = !state.selectedUser);
+      $$('.punch-btn').forEach(btn => btn.disabled = !state.selectedUser || state.isPunchSubmitting);
       renderTransportChoice();
       renderRecentLogs();
     }
@@ -739,6 +740,7 @@
     }
 
     function triggerPunchConfirmation(type){
+      if(state.isPunchSubmitting) return;
       if(!state.selectedUser){ showStatus('名前を選択してください。','error'); return; }
       state.confirmPunch = { userName:state.selectedUser, punchType:type, transport:(type==='出勤'||type==='退勤')?state.punchTransport:'', memo:(type==='出勤'||type==='退勤')?state.punchMemo:'' };
       $('confirmDetails').innerHTML = `<div class="row"><span>お名前:</span><span>${esc(state.confirmPunch.userName)} さん</span></div><div class="row"><span>打刻区分:</span><span>${esc(type)}</span></div>${type==='出勤'?`<div class="row"><span>本日の交通機関:</span><span>${state.punchTransport.indexOf('バス')===0?'🚌 バス・電車利用':'🚲 自転車等'}</span></div>`:''}${state.confirmPunch.memo?`<div><span>連絡メモ・備考:</span><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:8px;margin-top:5px;word-break:break-word">${esc(state.confirmPunch.memo)}</div></div>`:''}`;
@@ -746,18 +748,36 @@
     }
     function closePunchModal(){ state.confirmPunch=null; $('confirmModal').classList.remove('show'); }
     async function executePunch(){
-      if(!state.confirmPunch) return;
+      if(!state.confirmPunch || state.isPunchSubmitting) return;
+      state.isPunchSubmitting = true;
+      const executeButton = $('executePunch');
+      const originalButtonText = executeButton.textContent;
+      executeButton.disabled = true;
+      executeButton.textContent = '送信中…';
       const {userName,punchType,transport,memo} = state.confirmPunch;
-      closePunchModal();
-      const jst=getJSTDateTime();
-      const newLog = sanitizeLog({id:Date.now().toString(), name:userName, type:punchType, time:jst.full, month:jst.monthOnly, transport:transport||'', memo:memo||''}, 0);
-      state.logs = sanitizeLogs([newLog].concat(state.logs));
-      safeSet('attendance_logs', state.logs);
-      if(punchType==='出勤' || punchType==='退勤'){ state.punchMemo=''; $('punchMemo').value=''; }
-      renderAll();
-      showStatus(`${userName}さん: [${punchType}] を記録しました (${jst.display})`, 'success');
-      await sendGASWrite({ name:newLog.name, type:newLog.type, time:newLog.time, month:newLog.month, transport:newLog.transport, memo:newLog.memo, action:'add' });
-      setTimeout(()=>syncLogsFromGAS('after-add'), 1800);
+      try{
+        closePunchModal();
+        const jst=getJSTDateTime();
+        const requestId = (window.crypto && typeof window.crypto.randomUUID === 'function')
+          ? window.crypto.randomUUID()
+          : Date.now().toString() + '-' + Math.random().toString(36).slice(2);
+        const newLog = sanitizeLog({id:requestId, name:userName, type:punchType, time:jst.full, month:jst.monthOnly, transport:transport||'', memo:memo||''}, 0);
+        state.logs = sanitizeLogs([newLog].concat(state.logs));
+        safeSet('attendance_logs', state.logs);
+        if(punchType==='出勤' || punchType==='退勤'){ state.punchMemo=''; $('punchMemo').value=''; }
+        renderAll();
+        showStatus(`${userName}さん: [${punchType}] を記録しました (${jst.display})`, 'success');
+        await sendGASWrite({ id:requestId, requestId:requestId, name:newLog.name, type:newLog.type, time:newLog.time, month:newLog.month, transport:newLog.transport, memo:newLog.memo, action:'add' });
+        setTimeout(()=>syncLogsFromGAS('after-add'), 1800);
+      }catch(err){
+        state.lastSyncError = err && err.message ? err.message : String(err);
+        showStatus('打刻の送信処理でエラーが発生しました。設定タブの「起動診断」を確認してください。', 'error');
+      }finally{
+        state.isPunchSubmitting = false;
+        executeButton.disabled = false;
+        executeButton.textContent = originalButtonText;
+        renderPunch();
+      }
     }
 
     function requestDeleteLog(id){
