@@ -6,6 +6,7 @@ const MASTER_SHEET_NAME = "勤怠マスタ";
 const MEMBER_SHEET_SUFFIX = "_勤務表";
 const CATEGORY_USERS = ["田中", "牛嶋", "長谷川", "住吉"];
 const WORK_CATEGORIES = ["アカデミー", "ホームワイン", "その他（WT業務）"];
+const ALLOCATION_ITEMS = [{"id": "hw_production", "label": "HWの生産", "description": "伝票作成/詰め替え/梱包（WT）", "category": "ホームワイン"}, {"id": "hw_support", "label": "HWのお問い合わせ", "description": "メール/Lステップ（HW）", "category": "ホームワイン"}, {"id": "hw_admin", "label": "HWの管理", "description": "発送完了メール/売上処理/ec force配送管理/搬入（HW）", "category": "ホームワイン"}, {"id": "hw_pro", "label": "HWのPRO制作", "description": "PROのH1/Figma（HW）", "category": "ホームワイン"}, {"id": "hw_other", "label": "HWのその他", "description": "搬入などボトル販売/イベント/ツアー ※ホームワイン人件費に含まれない項目", "category": "その他（WT業務）"}, {"id": "hwa_production", "label": "HWAの生産", "description": "伝票作成/詰め替え/梱包", "category": "アカデミー"}, {"id": "hwa_support", "label": "HWAのお問い合わせ", "description": "メール/Lステップ", "category": "アカデミー"}, {"id": "hwa_admin", "label": "HWAの管理", "description": "発送完了メール/売上処理/ec force配送管理/搬入", "category": "アカデミー"}, {"id": "hwa_text", "label": "HWAのテキスト制作", "description": "H1/Figma（HW）、キャンバ、動画", "category": "アカデミー"}, {"id": "hwa_other", "label": "HWAのその他", "description": "搬入などボトル販売/イベント/ツアー ※アカデミー人件費に含まれない項目", "category": "その他（WT業務）"}];
 // 管理者認証情報はスクリプトプロパティで管理する。
 
 // マスターシートのヘッダー
@@ -19,7 +20,9 @@ const MASTER_HEADERS = [
   "交通機関",
   "備考",
   "業務区分",
-  "実働時間"
+  "実働時間",
+  ...ALLOCATION_ITEMS.map(item=>item.label),
+  "業務配分データ"
 ];
 
 /**
@@ -53,12 +56,13 @@ function handleRequest_(e, isPost) {
     const value = /^[a-f0-9-]{36}$/.test(key) ? CacheService.getScriptCache().get("result:" + key) : null;
     return createResponse_(e, value ? JSON.parse(value) : {ok:false, pending:true});
   }
-  if (adminActions.indexOf(action) !== -1) {
+  if (adminActions.indexOf(action) !== -1 || (action === "add" && isPost)) {
     if (!isPost || params.callback) return createResponse_(e, {ok:false, error:"post_required"});
     if (!/^[a-f0-9-]{36}$/.test(String(params.receipt || ""))) return createResponse_(e, {ok:false, error:"invalid_receipt"});
     let result;
     try {
       if (action === "adminLogin") result = loginAdmin_(params);
+      else if (action === "add") { const addSS = SpreadsheetApp.openById(SPREADSHEET_ID); result = addLog_(getOrCreateMasterSheet_(addSS), params); }
       else {
         result = validateAdmin_(params, action);
         if (!result) {
@@ -74,7 +78,7 @@ function handleRequest_(e, isPost) {
   }
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = getOrCreateMasterSheet_(ss);
+    const sheet = action === "read" ? ss.getSheetByName(MASTER_SHEET_NAME) : getOrCreateMasterSheet_(ss);
 
     if (action === "read") {
       return createResponse_(e, readData_(ss, sheet));
@@ -165,9 +169,9 @@ function addLog_(sheet, params) {
     const time = params.time || "";
     const month = params.month || deriveMonth_(time);
     const transport = params.transport || "";
-    const memo = params.memo || "";
+    let memo = String(params.memo || "").split(/[\r\n｜]+/).map(s=>s.trim()).filter(Boolean).join("｜");
     const category = String(params.category || "");
-    if (category && (!CATEGORY_USERS.includes(name) || !WORK_CATEGORIES.includes(category))) {
+    if (category && (!CATEGORY_USERS.includes(name) || !WORK_CATEGORIES.concat(["業務配分"]).includes(category))) {
       return {ok:false, action:"add", error:"invalid_category", message:"業務区分を確認してください。"};
     }
 
@@ -194,6 +198,25 @@ function addLog_(sheet, params) {
       };
     }
 
+    let allocations = [];
+    if (params.allocations) {
+      try { allocations = JSON.parse(params.allocations); } catch(e) { return {ok:false,error:"invalid_allocation",message:"業務時間の形式を確認してください。"}; }
+    }
+    if (category === "業務配分" && type === "退勤") {
+      const error = validateAllocations_(allocations);
+      if (error) return error;
+      const history = sheet.getLastRow()>1 ? sheet.getRange(2,1,sheet.getLastRow()-1,9).getDisplayValues().map(r=>({name:r[1],type:r[2],time:r[3],category:r[8]})) : [];
+      const actual = shiftMinutes_(history, name, time);
+      if (actual === null) return {ok:false,error:"missing_clockin",message:"出勤の記録が見つかりません。同期して確認してください。"};
+      if (allocations.reduce((n,a)=>n+a.minutes,0)!==actual) return {ok:false,error:"allocation_mismatch",actualMinutes:actual,message:"配分合計を実働"+actual+"分に合わせてください。"};
+      const details=allocations.filter(a=>a.minutes>0 || a.memo).map(a=>{
+        const item=ALLOCATION_ITEMS.find(i=>i.id===a.id);
+        return item.label+"（"+a.minutes+"分）"+(a.memo?"："+String(a.memo).split(/[\r\n｜]+/).map(s=>s.trim()).filter(Boolean).join("｜"):"");
+      });
+      if(memo) details.push(memo);
+      memo=details.join("｜");
+    } else if (allocations.length) return {ok:false,error:"unexpected_allocation",message:"業務配分は対象者の退勤時に入力してください。"};
+
     sheet.appendRow([
       new Date(),
       name,
@@ -204,21 +227,26 @@ function addLog_(sheet, params) {
       transport,
       memo,
       category,
-      ""
+      "",
+      ...ALLOCATION_ITEMS.map(item=>{const a=allocations.find(a=>a.id===item.id);return a?a.minutes/1440:"";}),
+      allocations.length?JSON.stringify(allocations):""
     ]);
     const rowNumber = sheet.getLastRow();
     // 同一人物・業務区分の直前の打刻が勤務中なら、その区間の実働を加算。
     // セル参照なので、管理者が打刻時刻を修正した場合にも再計算される。
     if (category && rowNumber > 2) {
       const r = rowNumber, p = r - 1;
-      const match = '($B$2:$B$'+p+'=B'+r+')*($I$2:$I$'+p+'=I'+r+')';
+      const match = '($B$2:$B$'+p+'=B'+r+')' + (category==='業務配分'?'':'*($I$2:$I$'+p+'=I'+r+')');
       const prevType = 'LOOKUP(2,ARRAYFORMULA(1/('+match+')),$C$2:$C$'+p+')';
       const prevTime = 'LOOKUP(2,ARRAYFORMULA(1/('+match+')),$D$2:$D$'+p+')';
       sheet.getRange(r,10).setFormula('=IFERROR(IF(AND(OR(C'+r+'="退勤",C'+r+'="休憩開始"),OR('+prevType+'="出勤",'+prevType+'="休憩終了")),MAX(0,VALUE(D'+r+')-VALUE('+prevTime+')),0),0)').setNumberFormat('[h]:mm:ss');
     }
+    if(allocations.length) sheet.getRange(rowNumber,11,1,10).setNumberFormat("[h]:mm");
     SpreadsheetApp.flush();
 
     return {
+      memo: memo,
+      allocations: allocations,
       ok: true,
       action: "add",
       id: logId,
@@ -257,7 +285,8 @@ function findExistingLogId_(sheet, logId, name, type, time, category) {
  * データ読み取り
  */
 function readData_(ss, sheet) {
-  const data = sheet.getDataRange().getDisplayValues();
+  const lastRow = sheet.getLastRow();
+  const data = lastRow ? sheet.getRange(1,1,lastRow,MASTER_HEADERS.length).getDisplayValues() : [];
   const logs = [];
 
   for (let i = 1; i < data.length; i++) {
@@ -282,7 +311,8 @@ function readData_(ss, sheet) {
       month: month,
       transport: transport,
       memo: memo,
-      category: row[8] || ""
+      category: row[8] || "",
+      allocations: parseAllocations_(row[20])
     });
   }
 
@@ -292,7 +322,7 @@ function readData_(ss, sheet) {
   return {
     ok: true,
     action: "read",
-    schemaVersion: 2,
+    schemaVersion: 3,
     logs: logs,
     users: roster.users,
     transportationCosts: roster.transportationCosts,
@@ -686,4 +716,30 @@ function testReadJsonp() {
     parameter: { action: "read", callback: "test" }
   });
   Logger.log(response.getContent());
+}
+
+function parseAllocations_(value) {
+  try { const data=JSON.parse(value||"[]"); return Array.isArray(data)?data:[]; } catch(e) { return []; }
+}
+function validateAllocations_(allocations) {
+  if(!Array.isArray(allocations) || allocations.length!==ALLOCATION_ITEMS.length) return {ok:false,error:"invalid_allocation",message:"10項目の業務時間を確認してください。"};
+  const ids=new Set();
+  for(const a of allocations){
+    if(!a || !ALLOCATION_ITEMS.some(i=>i.id===a.id) || ids.has(a.id) || !Number.isInteger(a.minutes) || a.minutes<0 || a.minutes>10080 || typeof a.memo!=="string" || a.memo.length>300 || (a.memo.trim() && !a.minutes)) return {ok:false,error:"invalid_allocation",message:"業務時間は0以上の分数で入力し、業務内容を記入した項目には時間も入力してください。"};
+    ids.add(a.id);
+  }
+  return null;
+}
+function shiftMinutes_(logs,name,endTime) {
+  const parse=t=>new Date(String(t).replace(/\//g,"-").replace(" ","T")+"+09:00").getTime();
+  const end=parse(endTime); let active=false, working=false, start=0, ms=0;
+  logs.filter(l=>l.name===name && parse(l.time)<=end).sort((a,b)=>parse(a.time)-parse(b.time)).forEach(l=>{
+    const t=parse(l.time);
+    if(l.type==='出勤' && !active){active=true;working=true;start=t;ms=0;}
+    else if(l.type==='休憩開始' && active && working){ms+=Math.max(0,t-start);working=false;}
+    else if(l.type==='休憩終了' && active && !working){start=t;working=true;}
+    else if(l.type==='退勤'){active=false;working=false;ms=0;}
+  });
+  if(!active || !Number.isFinite(end)) return null;
+  return Math.floor((ms+(working?Math.max(0,end-start):0))/60000);
 }
