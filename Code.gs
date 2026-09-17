@@ -4,7 +4,9 @@ const SPREADSHEET_ID = "1SjRkvg9kk1YFjJKROBlxXFHp10xO3_mC-JSq9yAM9lk";
 // マスターシート名
 const MASTER_SHEET_NAME = "勤怠マスタ";
 const MEMBER_SHEET_SUFFIX = "_勤務表";
-const ADMIN_PASSWORD = "12345";
+const CATEGORY_USERS = ["田中", "牛嶋", "長谷川", "住吉"];
+const WORK_CATEGORIES = ["アカデミー", "ホームワイン", "その他（WT業務）"];
+// 管理者認証情報はスクリプトプロパティで管理する。
 
 // マスターシートのヘッダー
 const MASTER_HEADERS = [
@@ -15,7 +17,9 @@ const MASTER_HEADERS = [
   "対象月",
   "システムID",
   "交通機関",
-  "備考"
+  "備考",
+  "業務区分",
+  "実働時間"
 ];
 
 /**
@@ -24,7 +28,7 @@ const MASTER_HEADERS = [
  * action=addUser / action=deleteUser をここで処理します。
  */
 function doGet(e) {
-  return handleRequest_(e);
+  return handleRequest_(e, false);
 }
 
 /**
@@ -32,17 +36,42 @@ function doGet(e) {
  * 念のためPOSTでも同じ処理を通します。
  */
 function doPost(e) {
-  return handleRequest_(e);
+  return handleRequest_(e, true);
 }
 
 /**
  * メイン処理
  */
-function handleRequest_(e) {
+function handleRequest_(e, isPost) {
   e = e || {};
   const params = e.parameter || {};
   const action = params.action || "read";
 
+  const adminActions = ["adminLogin", "addUser", "deleteUser", "delete"];
+  if (action === "adminResult") {
+    const key = String(params.receipt || "");
+    const value = /^[a-f0-9-]{36}$/.test(key) ? CacheService.getScriptCache().get("result:" + key) : null;
+    return createResponse_(e, value ? JSON.parse(value) : {ok:false, pending:true});
+  }
+  if (adminActions.indexOf(action) !== -1) {
+    if (!isPost || params.callback) return createResponse_(e, {ok:false, error:"post_required"});
+    if (!/^[a-f0-9-]{36}$/.test(String(params.receipt || ""))) return createResponse_(e, {ok:false, error:"invalid_receipt"});
+    let result;
+    try {
+      if (action === "adminLogin") result = loginAdmin_(params);
+      else {
+        result = validateAdmin_(params, action);
+        if (!result) {
+          const adminSS = SpreadsheetApp.openById(SPREADSHEET_ID);
+          if (action === "addUser") result = addUser_(adminSS, params);
+          else if (action === "deleteUser") result = deleteUser_(adminSS, params);
+          else result = deleteLog_(getOrCreateMasterSheet_(adminSS), params);
+        }
+      }
+    } catch (err) { result = {ok:false, error:"admin_action_failed", message:"管理者操作に失敗しました。再同期して状態を確認してください。"}; }
+    CacheService.getScriptCache().put("result:" + params.receipt, JSON.stringify(result), 60);
+    return createResponse_(e, result);
+  }
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = getOrCreateMasterSheet_(ss);
@@ -137,6 +166,10 @@ function addLog_(sheet, params) {
     const month = params.month || deriveMonth_(time);
     const transport = params.transport || "";
     const memo = params.memo || "";
+    const category = String(params.category || "");
+    if (category && (!CATEGORY_USERS.includes(name) || !WORK_CATEGORIES.includes(category))) {
+      return {ok:false, action:"add", error:"invalid_category", message:"業務区分を確認してください。"};
+    }
 
     if (!name || !type || !time) {
       return {
@@ -150,7 +183,7 @@ function addLog_(sheet, params) {
     // HTML側が発行したIDをそのまま保存する。同一リクエストが再送されても、
     // 同じIDまたは同じ打刻内容なら二重登録しない。
     const logId = String(params.requestId || params.id || new Date().getTime());
-    const existingLogId = findExistingLogId_(sheet, logId, name, type, time);
+    const existingLogId = findExistingLogId_(sheet, logId, name, type, time, category);
     if (existingLogId) {
       return {
         ok: true,
@@ -169,8 +202,21 @@ function addLog_(sheet, params) {
       month,
       logId,
       transport,
-      memo
+      memo,
+      category,
+      ""
     ]);
+    const rowNumber = sheet.getLastRow();
+    // 同一人物・業務区分の直前の打刻が勤務中なら、その区間の実働を加算。
+    // セル参照なので、管理者が打刻時刻を修正した場合にも再計算される。
+    if (category && rowNumber > 2) {
+      const r = rowNumber, p = r - 1;
+      const match = '($B$2:$B$'+p+'=B'+r+')*($I$2:$I$'+p+'=I'+r+')';
+      const prevType = 'LOOKUP(2,ARRAYFORMULA(1/('+match+')),$C$2:$C$'+p+')';
+      const prevTime = 'LOOKUP(2,ARRAYFORMULA(1/('+match+')),$D$2:$D$'+p+')';
+      sheet.getRange(r,10).setFormula('=IFERROR(IF(AND(OR(C'+r+'="退勤",C'+r+'="休憩開始"),OR('+prevType+'="出勤",'+prevType+'="休憩終了")),MAX(0,VALUE(D'+r+')-VALUE('+prevTime+')),0),0)').setNumberFormat('[h]:mm:ss');
+    }
+    SpreadsheetApp.flush();
 
     return {
       ok: true,
@@ -188,7 +234,7 @@ function addLog_(sheet, params) {
  * 同じ送信ID、または名前・区分・打刻日時が完全一致する行を探す。
  * 通信遅延による同一URLの再送を安全に1件へまとめる。
  */
-function findExistingLogId_(sheet, logId, name, type, time) {
+function findExistingLogId_(sheet, logId, name, type, time, category) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return "";
 
@@ -197,7 +243,7 @@ function findExistingLogId_(sheet, logId, name, type, time) {
     const row = rows[i];
     const rowId = row[5] ? String(row[5]) : "";
     const sameId = rowId && rowId === logId;
-    const samePunch = row[1] === name && row[2] === type && row[3] === time;
+    const samePunch = row[1] === name && row[2] === type && row[3] === time && (row[8] || "") === (category || "");
 
     if (sameId || samePunch) {
       return rowId || logId;
@@ -235,7 +281,8 @@ function readData_(ss, sheet) {
       time: time,
       month: month,
       transport: transport,
-      memo: memo
+      memo: memo,
+      category: row[8] || ""
     });
   }
 
@@ -245,6 +292,7 @@ function readData_(ss, sheet) {
   return {
     ok: true,
     action: "read",
+    schemaVersion: 2,
     logs: logs,
     users: roster.users,
     transportationCosts: roster.transportationCosts,
@@ -465,17 +513,33 @@ function preserveMonthSourceBeforeDelete_(memberSheets, targetSheet) {
   });
 }
 
-function validateAdmin_(params, action) {
-  if (String(params.adminPassword || "") === ADMIN_PASSWORD) {
-    return null;
-  }
+function loginAdmin_(params) {
+  const props = PropertiesService.getScriptProperties();
+  const expected = props.getProperty("ADMIN_PASSWORD_SHA256");
+  if (!expected) return {ok:false, error:"admin_not_configured", message:"管理者認証が未設定です。"};
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const cache = CacheService.getScriptCache();
+    const failures = Number(cache.get("adminFailures") || 0);
+    if (failures >= 20) return {ok:false, error:"rate_limited", message:"しばらく待ってから認証してください。"};
+    const actual = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(params.adminPassword || ""), Utilities.Charset.UTF_8)
+      .map(function(b){ return (b & 255).toString(16).padStart(2, "0"); }).join("");
+    if (actual !== expected) {
+      cache.put("adminFailures", String(failures + 1), 300);
+      return {ok:false, error:"unauthorized", message:"パスワードが正しくありません。"};
+    }
+    cache.remove("adminFailures");
+    const token = Utilities.getUuid() + Utilities.getUuid();
+    cache.put("admin:" + token, "valid", 1800);
+    return {ok:true, action:"adminLogin", token:token};
+  } finally { lock.releaseLock(); }
+}
 
-  return {
-    ok: false,
-    action: action,
-    error: "unauthorized",
-    message: "管理者認証に失敗しました。"
-  };
+function validateAdmin_(params, action) {
+  const token = String(params.adminToken || "");
+  if (/^[a-f0-9-]{72}$/.test(token) && CacheService.getScriptCache().get("admin:" + token) === "valid") return null;
+  return {ok:false, action:action, error:"unauthorized", message:"管理者認証が必要です。もう一度ログインしてください。"};
 }
 
 function validateUserName_(value) {
@@ -513,6 +577,8 @@ function validateUserName_(value) {
  * idがあればid優先。idがない場合は name + time で削除。
  */
 function deleteLog_(sheet, params) {
+  const authError = validateAdmin_(params, "delete");
+  if (authError) return authError;
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
 

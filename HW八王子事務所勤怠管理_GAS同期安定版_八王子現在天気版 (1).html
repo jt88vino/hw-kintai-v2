@@ -87,6 +87,11 @@
         </div>
         <div class="card">
           <h3 class="card-title">勤怠打刻ボタン</h3>
+          <div id="workCategoryBox" class="hidden" style="margin-bottom:14px">
+            <label for="workCategory">業務区分</label>
+            <select id="workCategory"><option value="">-- 業務を選択 --</option><option>アカデミー</option><option>ホームワイン</option><option>その他（WT業務）</option></select>
+            <p class="member-help">業務ごとに出勤・休憩・退勤を記録します。業務を切り替えるときは、前の業務を退勤してから次の業務で出勤してください。</p>
+          </div>
           <div class="punch-grid">
             <button class="punch-btn punch-in" data-punch="出勤" disabled><span class="ico">✅</span><span>出 勤</span></button>
             <button class="punch-btn punch-out" data-punch="退勤" disabled><span class="ico">🚪</span><span>退 勤</span></button>
@@ -145,9 +150,10 @@
   (function(){
     'use strict';
 
-    const ADMIN_PASSWORD = '12345';
     const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxpTfsziHbGsM6kOXuPvlVQdnnufZ2RS_reX5NhoE0aOpra-RD5m8RBJXwEwc_34a-C/exec';
     const DEFAULT_USERS = ['田中','長谷川','鈴木','牛嶋','喜多','池亀','松井','出村','橋本','住吉','戸部','村尾','和光'];
+    const CATEGORY_USERS = ['田中','牛嶋','長谷川','住吉'];
+    const WORK_CATEGORIES = ['アカデミー','ホームワイン','その他（WT業務）'];
     const DAILY_TRIVIA = [
       'カタツムリはコンクリートを食べる。殻を作るカルシウムを効率よく摂取するためです。 🐌',
       'トランプの4つのマークには四季の意味があり、ダイヤは春、クローバーは夏、ハートは秋、スペードは冬を表しています。 🃏',
@@ -169,11 +175,14 @@
       transportationCosts: safeObject(safeGet('attendance_transportation', {})),
       punchTransport: 'バス・電車（交通費あり）',
       punchMemo: '',
+      workCategory: '',
       activeTab: 'punch',
       selectedMonth: getCurrentMonth(),
       isSyncing: false,
       isPunchSubmitting: false,
       isAdminAuthenticated: false,
+      adminToken: '',
+      isAdminSubmitting: false,
       confirmPunch: null,
       deleteTargetLog: null,
       lastSyncError: '',
@@ -257,7 +266,8 @@
         name, type, time,
         month: String(log.month || getMonthFromTime(time)),
         transport: String(log.transport || ''),
-        memo: String(log.memo || '')
+        memo: String(log.memo || ''),
+        category: String(log.category || '')
       };
     }
     function sanitizeLogs(arr){
@@ -299,7 +309,8 @@
     }
 
     function bindEvents(){
-      $('selectedUser').addEventListener('change', e=>{ state.selectedUser=e.target.value; renderPunch(); });
+      $('selectedUser').addEventListener('change', e=>{ state.selectedUser=e.target.value; state.workCategory=''; state.punchMemo=''; renderPunch(); });
+      $('workCategory').addEventListener('change', e=>{ state.workCategory=e.target.value; });
       $('transportBus').addEventListener('click', ()=>{ state.punchTransport='バス・電車（交通費あり）'; renderTransportChoice(); });
       $('transportBike').addEventListener('click', ()=>{ state.punchTransport='自転車・その他（支給なし）'; renderTransportChoice(); });
       $('punchMemo').addEventListener('input', e=>{ state.punchMemo=e.target.value; });
@@ -309,8 +320,8 @@
       $('selectedMonth').addEventListener('change', e=>{ state.selectedMonth=e.target.value; renderDashboard(); });
       $('adminLogin').addEventListener('submit', handleAdminLogin);
       $('addUserForm').addEventListener('submit', addUser);
-      $('lockBtn').addEventListener('click', ()=>{ state.isAdminAuthenticated=false; $('adminPassword').value=''; renderSettings(); });
-      $('gasUrl').addEventListener('change', e=>{ state.gasUrl = e.target.value.trim(); safeSet('attendance_gas_url', state.gasUrl); showStatus('GAS URLを保存しました。', 'success'); syncLogsFromGAS('url-change'); });
+      $('lockBtn').addEventListener('click', ()=>{ state.isAdminAuthenticated=false; state.adminToken=''; $('adminPassword').value=''; renderSettings(); });
+      $('gasUrl').addEventListener('change', e=>{ state.adminToken=''; state.isAdminAuthenticated=false; state.gasUrl = e.target.value.trim(); safeSet('attendance_gas_url', state.gasUrl); showStatus('GAS URLを保存しました。', 'success'); syncLogsFromGAS('url-change'); });
       $('cancelPunch').addEventListener('click', closePunchModal);
       $('executePunch').addEventListener('click', executePunch);
       $('cancelDelete').addEventListener('click', closeDeleteModal);
@@ -566,26 +577,24 @@
         }));
     }
 
-    async function sendGASAdminAction(params){
+    async function adminRequest(params){
       if(!state.gasUrl) throw new Error('GAS URLが設定されていません。');
-      const url = buildGasUrl(Object.assign({}, params, { adminPassword:ADMIN_PASSWORD, t:Date.now() }));
-
-      // 書き込み結果をJSONPで待つと、処理成功後に応答だけ失敗して画面が古いまま残ることがある。
-      // そのため書き込みを一度だけ送り、readで名簿の実状態を確認してから画面を更新する。
-      await timeoutPromise(fetch(url, {
-        method:'GET',
-        mode:'no-cors',
-        cache:'no-store',
-        keepalive:true
-      }), 12000, '名簿の書き込み');
-
-      const result = await timeoutPromise(
-        waitForRosterUpdate(params.action, String(params.name || '').trim()),
-        30000,
-        '名簿の反映確認'
-      );
-      state.lastSyncError = '';
-      return result;
+      const receipt = window.crypto.randomUUID();
+      // パスワード・認証トークンはURLやブラウザ保存領域へ入れない。
+      await timeoutPromise(fetch(state.gasUrl, {method:'POST', mode:'no-cors', credentials:'omit',
+        body:new URLSearchParams(Object.assign({},params,{receipt}))}),12000,'管理者操作');
+      for(let attempt=0;attempt<12;attempt++){
+        const result = await timeoutPromise(readGASViaJSONP(buildGasUrl({action:'adminResult',receipt,t:Date.now()})),8000,'処理結果の確認');
+        if(result && !result.pending){
+          if(!result.ok) throw new Error(result.message || '管理者操作に失敗しました。');
+          return result;
+        }
+        await new Promise(resolve=>setTimeout(resolve,1000));
+      }
+      throw new Error('結果を確認できませんでした。再同期して状態を確認してください。');
+    }
+    async function sendGASAdminAction(params){
+      return adminRequest(Object.assign({},params,{adminToken:state.adminToken}));
     }
 
     function renderAll(){ renderPunch(); renderDashboard(); renderSettings(); }
@@ -595,6 +604,10 @@
       select.innerHTML = '<option value="">-- 名前を選択 --</option>';
       state.users.forEach(name=>{ const opt=document.createElement('option'); opt.value=name; opt.textContent=name; select.appendChild(opt); });
       select.value = state.selectedUser;
+      $('workCategoryBox').classList.toggle('hidden', !CATEGORY_USERS.includes(state.selectedUser));
+      $('workCategory').value = state.workCategory;
+      $('workCategory').disabled = state.isPunchSubmitting;
+      select.disabled = state.isPunchSubmitting;
       $('transportCard').classList.toggle('hidden', !state.selectedUser);
       $$('.punch-btn').forEach(btn => btn.disabled = !state.selectedUser || state.isPunchSubmitting);
       renderTransportChoice();
@@ -616,6 +629,10 @@
           <div class="row" style="gap:4px"><span class="log-time">${esc(getHHMM(log.time))}</span><button class="delete-btn" data-delete-id="${esc(log.id)}" title="削除">🗑</button></div>
         </div>`).join('');
       box.querySelectorAll('[data-delete-id]').forEach(btn=>btn.addEventListener('click', ()=>requestDeleteLog(btn.dataset.deleteId)));
+      box.querySelectorAll('.log-main').forEach((el,i)=>{
+        if(!recent[i].category) return;
+        const label=document.createElement('div'); label.className='memo'; label.textContent=recent[i].category; el.appendChild(label);
+      });
     }
 
     function setActiveTab(tab){
@@ -636,7 +653,7 @@
       return {status:'未出勤', time:getHHMM(latest.time), rawType:latest.type, cls:'none'};
     }
     function calculateMonthlyStats(month){
-      const stats = {}; state.users.forEach(n=>stats[n]={totalMinutes:0,daysCount:0,paidTransportDays:0});
+      const stats = {}; state.users.forEach(n=>stats[n]={totalMinutes:0,daysCount:0,paidTransportDays:0,categoryMinutes:{}});
       const groups = {};
       state.logs.filter(l=>l.month === month).forEach(log=>{
         const date = getDatePart(log.time); if(!groups[log.name]) groups[log.name]={}; if(!groups[log.name][date]) groups[log.name][date]=[]; groups[log.name][date].push(log);
@@ -645,11 +662,11 @@
         let minutes=0, days=0, paid=0;
         Object.keys(groups[name]).forEach(date=>{
           const dayLogs = groups[name][date].sort((a,b)=>timeMs(a.time)-timeMs(b.time));
-          const find = type => dayLogs.find(l=>l.type===type);
+          if(dayLogs.some(l=>l.type==='出勤')) days++;
+          if(dayLogs.some(l=>l.type==='出勤' && l.transport.indexOf('バス')===0)) paid++;
+          const find = type => dayLogs.find(l=>!l.category && l.type===type);
           const pin = find('出勤'), pout = find('退勤'), bs = find('休憩開始'), be = find('休憩終了');
           if(pin){
-            days++;
-            if(pin.transport && pin.transport.indexOf('バス')===0) paid++;
             const inMs=timeMs(pin.time), outMs=pout?timeMs(pout.time):0;
             if(outMs && outMs > inMs){
               let dayMs = outMs - inMs;
@@ -657,6 +674,17 @@
               minutes += Math.max(0, Math.floor(dayMs/60000));
             }
           }
+        });
+        // 業務別の複数区間を加算する。休憩開始・退勤までを実働として計上。
+        WORK_CATEGORIES.forEach(category=>{
+          let previous=null, ms=0;
+          state.logs.filter(l=>l.name===name && l.category===category).sort((a,b)=>timeMs(a.time)-timeMs(b.time)).forEach(log=>{
+            if(previous && log.month===month && ['退勤','休憩開始'].includes(log.type) && ['出勤','休憩終了'].includes(previous.type)) ms+=Math.max(0,timeMs(log.time)-timeMs(previous.time));
+            previous=log;
+          });
+          const categoryMinutes=Math.floor(ms/60000);
+          if(stats[name]) stats[name].categoryMinutes[category]=categoryMinutes;
+          minutes+=categoryMinutes;
         });
         if(stats[name]){stats[name].totalMinutes=minutes;stats[name].daysCount=days;stats[name].paidTransportDays=paid;}
       });
@@ -675,9 +703,20 @@
         const dailyCost = Number(state.transportationCosts[name]||0); const totalTransport = dailyCost * st.paidTransportDays; const barCls = over ? 'danger' : ratio >= 80 ? 'warn' : '';
         return `<div class="stat-card"><div class="stat-head"><div><span class="stat-name ${over?'over':''}">${esc(name)} さん</span><div class="stat-meta">総出勤実績: ${st.daysCount} 日<br>バス・電車支給日: ${st.paidTransportDays} 日</div></div><div class="stat-num ${over?'over':''}"><div><b>${h}</b>時間 <b>${m}</b>分</div><div class="money">交通費: ¥${totalTransport.toLocaleString()} <span style="color:#94a3b8">(往復 ¥${dailyCost.toLocaleString()})</span></div></div></div><div class="bar"><span class="${barCls}" style="width:${st.totalMinutes>0?Math.max(3,ratio):0}%"></span></div></div>`;
       }).join('');
+      Array.from($('monthlyStats').children).forEach((card,i)=>{
+        const name=state.users[i], st=stats[name];
+        if(!CATEGORY_USERS.includes(name) || !st) return;
+        const detail=document.createElement('div'); detail.className='stat-meta';
+        detail.innerHTML=WORK_CATEGORIES.map(c=>{const min=st.categoryMinutes[c]||0;return `${esc(c)}: ${Math.floor(min/60)}時間${min%60}分`;}).join('<br>');
+        card.appendChild(detail);
+      });
       const filtered = state.logs.filter(l=>l.month === state.selectedMonth);
       $('logsTable').innerHTML = filtered.length ? filtered.map(log=>`<tr><td><b>${esc(log.name)}</b></td><td><span class="tag ${logTag(log.type)}">${esc(log.type)}</span></td><td>${log.type==='出勤' && log.transport ? `<span class="transport">${log.transport.indexOf('バス')===0?'🚌 バス・電車':'🚲 自転車'}</span>`:''}${log.memo?`<div class="memo truncate" title="${esc(log.memo)}">${esc(log.memo)}</div>`:''}</td><td style="white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#64748b">${esc(formatWithDayOfWeek(log.time))}</td><td><button class="delete-btn" data-delete-id="${esc(log.id)}">🗑</button></td></tr>`).join('') : `<tr><td colspan="5" class="empty">${esc(state.selectedMonth.replace('-','年'))}月のデータはありません。</td></tr>`;
       $('logsTable').querySelectorAll('[data-delete-id]').forEach(btn=>btn.addEventListener('click', ()=>requestDeleteLog(btn.dataset.deleteId)));
+      $('logsTable').querySelectorAll('tr').forEach((row,i)=>{
+        if(!filtered[i] || !filtered[i].category) return;
+        const label=document.createElement('div'); label.className='memo'; label.textContent=filtered[i].category; row.children[1].appendChild(label);
+      });
     }
 
     function renderSettings(){
@@ -729,10 +768,17 @@
         setSyncing(false);
       }
     }
-    function handleAdminLogin(e){
+    async function handleAdminLogin(e){
       e.preventDefault();
-      if($('adminPassword').value === ADMIN_PASSWORD){ state.isAdminAuthenticated=true; $('adminPassword').value=''; renderSettings(); showStatus('管理者メニューを認証しました。','success'); }
-      else { showStatus('パスワードが正しくありません。','error'); }
+      if(state.isAdminSubmitting) return;
+      state.isAdminSubmitting=true;
+      const password=$('adminPassword').value; $('adminPassword').value='';
+      try {
+        const result=await adminRequest({action:'adminLogin',adminPassword:password});
+        state.adminToken=result.token; state.isAdminAuthenticated=true;
+        renderSettings(); showStatus('管理者メニューを認証しました。','success');
+      } catch(err) { state.adminToken=''; state.isAdminAuthenticated=false; showStatus(err.message,'error'); }
+      finally { state.isAdminSubmitting=false; }
     }
     function toggleDebug(){
       const box = $('debugBox'); box.classList.toggle('show');
@@ -742,11 +788,18 @@
     function triggerPunchConfirmation(type){
       if(state.isPunchSubmitting) return;
       if(!state.selectedUser){ showStatus('名前を選択してください。','error'); return; }
-      state.confirmPunch = { userName:state.selectedUser, punchType:type, transport:(type==='出勤'||type==='退勤')?state.punchTransport:'', memo:(type==='出勤'||type==='退勤')?state.punchMemo:'' };
+      const category = CATEGORY_USERS.includes(state.selectedUser) ? state.workCategory : '';
+      if(CATEGORY_USERS.includes(state.selectedUser) && !WORK_CATEGORIES.includes(category)){
+        showStatus('業務区分を選択してください。','error'); $('workCategory').focus(); return;
+      }
+      state.confirmPunch = { userName:state.selectedUser, punchType:type, category, transport:(type==='出勤'||type==='退勤')?state.punchTransport:'', memo:(type==='出勤'||type==='退勤')?state.punchMemo:'' };
       $('confirmDetails').innerHTML = `<div class="row"><span>お名前:</span><span>${esc(state.confirmPunch.userName)} さん</span></div><div class="row"><span>打刻区分:</span><span>${esc(type)}</span></div>${type==='出勤'?`<div class="row"><span>本日の交通機関:</span><span>${state.punchTransport.indexOf('バス')===0?'🚌 バス・電車利用':'🚲 自転車等'}</span></div>`:''}${state.confirmPunch.memo?`<div><span>連絡メモ・備考:</span><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:8px;margin-top:5px;word-break:break-word">${esc(state.confirmPunch.memo)}</div></div>`:''}`;
+      if(category) $('confirmDetails').innerHTML += `<div class="row"><span>業務区分:</span><span>${esc(category)}</span></div>`;
+      if(type==='退勤') $('confirmDetails').innerHTML += `<div><label for="checkoutMemo">行った業務内容・備考（任意）</label><textarea id="checkoutMemo" class="textarea" maxlength="1000" placeholder="例：講座の準備、受注対応、WT業務など">${esc(state.confirmPunch.memo)}</textarea></div>`;
+      $('confirmDetails').innerHTML += '<div id="punchSendStatus" role="status" aria-live="polite"></div>';
       $('confirmModal').classList.add('show');
     }
-    function closePunchModal(){ state.confirmPunch=null; $('confirmModal').classList.remove('show'); }
+    function closePunchModal(){ if(state.isPunchSubmitting) return; state.confirmPunch=null; $('confirmModal').classList.remove('show'); }
     async function executePunch(){
       if(!state.confirmPunch || state.isPunchSubmitting) return;
       state.isPunchSubmitting = true;
@@ -754,28 +807,43 @@
       const originalButtonText = executeButton.textContent;
       executeButton.disabled = true;
       executeButton.textContent = '送信中…';
-      const {userName,punchType,transport,memo} = state.confirmPunch;
+      $('cancelPunch').disabled = true;
+      const draft = state.confirmPunch;
+      if(draft.punchType==='退勤' && !draft.log) draft.memo = $('checkoutMemo').value.trim();
+      const {userName,punchType,transport,memo,category} = draft;
+      if($('checkoutMemo')) $('checkoutMemo').disabled = true;
+      $('punchSendStatus').textContent = '送信中です。完了までお待ちください。';
       try{
-        closePunchModal();
         const jst=getJSTDateTime();
         const requestId = (window.crypto && typeof window.crypto.randomUUID === 'function')
           ? window.crypto.randomUUID()
           : Date.now().toString() + '-' + Math.random().toString(36).slice(2);
-        const newLog = sanitizeLog({id:requestId, name:userName, type:punchType, time:jst.full, month:jst.monthOnly, transport:transport||'', memo:memo||''}, 0);
+        const newLog = draft.log || sanitizeLog({id:requestId, name:userName, type:punchType, time:jst.full, month:jst.monthOnly, transport:transport||'', memo:memo||'', category}, 0);
+        draft.log = newLog;
+        if(!state.gasUrl) throw new Error('連携先が設定されていません。管理者に確認してください。');
+        renderPunch();
+        // 同じ確認画面の再試行では同一ID・時刻・内容を再利用する。
+        const result = await timeoutPromise(readGASViaJSONP(buildGasUrl(Object.assign({}, newLog,{action:'add',requestId:newLog.id,t:Date.now()}))),20000,'打刻の送信');
+        if(!result || result.ok!==true) throw new Error(result && (result.message || result.error) || '保存結果を確認できませんでした。');
+        newLog.id = String(result.id || newLog.id);
+        state.logs = state.logs.filter(l=>l.id!==newLog.id);
         state.logs = sanitizeLogs([newLog].concat(state.logs));
         safeSet('attendance_logs', state.logs);
         if(punchType==='出勤' || punchType==='退勤'){ state.punchMemo=''; $('punchMemo').value=''; }
         renderAll();
         showStatus(`${userName}さん: [${punchType}] を記録しました (${jst.display})`, 'success');
-        await sendGASWrite({ id:requestId, requestId:requestId, name:newLog.name, type:newLog.type, time:newLog.time, month:newLog.month, transport:newLog.transport, memo:newLog.memo, action:'add' });
+        state.confirmPunch = null;
+        $('confirmModal').classList.remove('show');
         setTimeout(()=>syncLogsFromGAS('after-add'), 1800);
       }catch(err){
         state.lastSyncError = err && err.message ? err.message : String(err);
-        showStatus('打刻の送信処理でエラーが発生しました。設定タブの「起動診断」を確認してください。', 'error');
+        $('punchSendStatus').textContent = '保存を確認できませんでした。同じボタンでもう一度確認できます。' + state.lastSyncError;
       }finally{
         state.isPunchSubmitting = false;
         executeButton.disabled = false;
         executeButton.textContent = originalButtonText;
+        $('cancelPunch').disabled = false;
+        if($('checkoutMemo')) $('checkoutMemo').disabled = !!draft.log;
         renderPunch();
       }
     }
@@ -789,16 +857,19 @@
     }
     function closeDeleteModal(){ state.deleteTargetLog=null; $('deleteModal').classList.remove('show'); }
     async function confirmDeleteLog(){
-      if(!state.deleteTargetLog) return;
-      if($('deletePassword').value !== ADMIN_PASSWORD){ $('deletePasswordError').classList.remove('hidden'); return; }
-      const target = state.deleteTargetLog;
-      state.logs = state.logs.filter(l=>l.id !== target.id);
-      safeSet('attendance_logs', state.logs);
-      closeDeleteModal();
-      renderAll();
-      showStatus(`${target.name}さんの[${target.type}]を取り消しました。`, 'success');
-      await sendGASWrite({ id:target.id, name:target.name, time:target.time, action:'delete' });
-      setTimeout(()=>syncLogsFromGAS('after-delete'), 1600);
+      if(!state.deleteTargetLog || state.isAdminSubmitting) return;
+      state.isAdminSubmitting=true;
+      const target=state.deleteTargetLog;
+      const password=$('deletePassword').value; $('deletePassword').value='';
+      try {
+        const auth=await adminRequest({action:'adminLogin',adminPassword:password});
+        await adminRequest({action:'delete',id:target.id,adminToken:auth.token});
+        state.logs=state.logs.filter(l=>l.id!==target.id);
+        safeSet('attendance_logs',state.logs); closeDeleteModal(); renderAll();
+        showStatus(`${target.name}さんの[${target.type}]を取り消しました。`,'success');
+        setTimeout(()=>syncLogsFromGAS('after-delete'),1600);
+      } catch(err) { showStatus(err.message,'error'); }
+      finally { state.isAdminSubmitting=false; }
     }
 
     if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
