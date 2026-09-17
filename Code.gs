@@ -81,7 +81,7 @@ function handleRequest_(e, isPost) {
     const sheet = action === "read" ? ss.getSheetByName(MASTER_SHEET_NAME) : getOrCreateMasterSheet_(ss);
 
     if (action === "read") {
-      return createResponse_(e, readData_(ss, sheet));
+      return createResponse_(e, readData_(ss, sheet, params));
     }
 
     if (action === "add") {
@@ -284,54 +284,142 @@ function findExistingLogId_(sheet, logId, name, type, time, category) {
 /**
  * データ読み取り
  */
-function readData_(ss, sheet) {
-  const lastRow = sheet.getLastRow();
-  const data = lastRow ? sheet.getRange(1,1,lastRow,MASTER_HEADERS.length).getDisplayValues() : [];
-  const logs = [];
-
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
-    const id = row[5] ? String(row[5]) : String(i);
-    const name = row[1] || "";
-    const type = row[2] || "";
-    const time = row[3] || "";
-    const month = row[4] || deriveMonth_(time);
-    const transport = row[6] || "";
-    const memo = row[7] || "";
-
-    if (!name && !type && !time) {
-      continue;
-    }
-
-    logs.push({
-      id: id,
-      name: name,
-      type: type,
-      time: time,
-      month: month,
-      transport: transport,
-      memo: memo,
-      category: row[8] || "",
-      allocations: parseAllocations_(row[20])
-    });
+// The index contains row locations only; attendance remains in the master sheet.
+// Chunk properties to stay below the per-value limit. Reads and writes share a lock.
+const READ_INDEX_PREFIX = 'ATTENDANCE_READ_INDEX_';
+function invalidateAttendanceIndex_() {
+  PropertiesService.getScriptProperties().deleteProperty(READ_INDEX_PREFIX + 'meta');
+}
+function attendanceSheetChanged(e) {
+  if (!e || !e.range || e.range.getSheet().getName() === MASTER_SHEET_NAME) invalidateAttendanceIndex_();
+}
+function setupAttendanceReadIndex() {
+  const triggers = ScriptApp.getProjectTriggers();
+  if (!triggers.some(t=>t.getHandlerFunction()==='attendanceSheetChanged')) {
+    ScriptApp.newTrigger('attendanceSheetChanged').forSpreadsheet(SPREADSHEET_ID).onChange().create();
   }
-
-  logs.reverse();
-  const roster = readRoster_(ss);
-
-  return {
-    ok: true,
-    action: "read",
-    schemaVersion: 3,
-    logs: logs,
-    users: roster.users,
-    transportationCosts: roster.transportationCosts,
-    serverTime: Utilities.formatDate(
-      new Date(),
-      "Asia/Tokyo",
-      "yyyy-MM-dd HH:mm:ss"
-    )
-  };
+  invalidateAttendanceIndex_();
+  const ss=SpreadsheetApp.openById(SPREADSHEET_ID);
+  readData_(ss,ss.getSheetByName(MASTER_SHEET_NAME),{scope:'recent'});
+}
+function loadReadIndex_() {
+  const props=PropertiesService.getScriptProperties();
+  try {
+    const meta=JSON.parse(props.getProperty(READ_INDEX_PREFIX+'meta')||'null');
+    if(!meta) return null;
+    let value='';
+    for(let i=0;i<meta.parts;i++) value+=props.getProperty(READ_INDEX_PREFIX+i)||'';
+    return JSON.parse(value);
+  } catch(e) { return null; }
+}
+function saveReadIndex_(index) {
+  const props=PropertiesService.getScriptProperties(), value=JSON.stringify(index);
+  const parts=Math.ceil(value.length/2000); // Japanese text can take three UTF-8 bytes.
+  const old=JSON.parse(props.getProperty(READ_INDEX_PREFIX+'meta')||'null');
+  for(let i=0;i<parts;i++) props.setProperty(READ_INDEX_PREFIX+i,value.slice(i*2000,(i+1)*2000));
+  for(let i=parts;old && i<old.parts;i++) props.deleteProperty(READ_INDEX_PREFIX+i);
+  props.setProperty(READ_INDEX_PREFIX+'meta',JSON.stringify({parts:parts}));
+}
+function indexTime_(value) {
+  const text=String(value||'').replace(/\//g,'-');
+  const m=text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  return m ? m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0')+' '+m[4].padStart(2,'0')+':'+m[5]+':'+(m[6]||'00') : text;
+}
+function logFromRow_(row, rowNumber) {
+  return {id:String(row[5]||rowNumber-1),name:row[1]||'',type:row[2]||'',time:row[3]||'',
+    month:row[4]||deriveMonth_(row[3]),transport:row[6]||'',memo:row[7]||'',
+    category:row[8]||'',allocations:parseAllocations_(row[20])};
+}
+function updateReadIndex_(index, rows, startRow) {
+  const entries=[];
+  rows.forEach((row,i)=>{
+    if(!row[1] && !row[2] && !row[3]) return;
+    const n=startRow+i, month=String(row[4]||deriveMonth_(row[3]));
+    const bucket=index.months[month]||(index.months[month]={spans:[],last:{}});
+    const tail=bucket.spans[bucket.spans.length-1];
+    if(tail && tail[1]===n-1) tail[1]=n; else bucket.spans.push([n,n]);
+    const time=indexTime_(row[3]);
+    entries.push({n:n,name:row[1],type:row[2],time:time,month:month,category:row[8]||''});
+  });
+  entries.sort((a,b)=>a.time.localeCompare(b.time)||a.n-b.n).forEach(e=>{
+    const key=JSON.stringify([e.name,e.category]);
+    index.months[e.month].last[key]=[e.n,e.time];
+    index.latest[e.name]=e.n;
+    let session=index.sessions[e.name]||[];
+    if(e.type==='出勤' && !session.length) session=[e.n];
+    else if(e.type==='退勤') session=[];
+    else if(session.length) session.push(e.n);
+    index.sessions[e.name]=session;
+    index.recent.push(e.n); if(index.recent.length>50) index.recent.shift();
+    index.maxTime=e.time;
+  });
+  index.lastRow=startRow+rows.length-1;
+  index.revision=Utilities.getUuid();
+}
+function getReadIndex_(sheet) {
+  const lastRow=sheet?sheet.getLastRow():0;
+  let index=loadReadIndex_();
+  // A rebuild also reconciles changes made by external APIs (which do not fire edit triggers).
+  if(!index || index.version!==1 || index.lastRow>lastRow || Date.now()-index.builtAt>21600000) index=null;
+  if(index && index.lastRow<lastRow) {
+    const rows=sheet.getRange(index.lastRow+1,1,lastRow-index.lastRow,MASTER_HEADERS.length).getDisplayValues();
+    if(rows.some(r=>r[3] && indexTime_(r[3])<index.maxTime)) index=null;
+    else {updateReadIndex_(index,rows,index.lastRow+1);saveReadIndex_(index);}
+  }
+  if(!index) {
+    index={version:1,lastRow:lastRow,builtAt:Date.now(),months:{},latest:{},sessions:{},recent:[],maxTime:'',revision:Utilities.getUuid()};
+    if(lastRow>1) updateReadIndex_(index,sheet.getRange(2,1,lastRow-1,MASTER_HEADERS.length).getDisplayValues(),2);
+    saveReadIndex_(index);
+  }
+  return index;
+}
+function readIndexedRows_(sheet, spans) {
+  if(!sheet || !spans.length) return [];
+  // Merge overlaps and adjacent ranges; never expand gaps into a full-history read.
+  const merged=[];
+  spans.sort((a,b)=>a[0]-b[0]).forEach(span=>{
+    const tail=merged[merged.length-1];
+    if(tail && span[0]<=tail[1]+1) tail[1]=Math.max(tail[1],span[1]);
+    else merged.push(span.slice());
+  });
+  const logs=[];
+  merged.forEach(span=>sheet.getRange(span[0],1,span[1]-span[0]+1,MASTER_HEADERS.length).getDisplayValues().forEach((r,i)=>{
+    if(r[1] || r[2] || r[3]) logs.push(logFromRow_(r,span[0]+i));
+  }));
+  return logs.sort((a,b)=>indexTime_(b.time).localeCompare(indexTime_(a.time)));
+}
+function readData_(ss, sheet, params) {
+  params=params||{};
+  const scope=params.scope||'legacy', month=String(params.month||'');
+  if(!['recent','month','legacy'].includes(scope)) return {ok:false,error:'invalid_scope'};
+  if(scope==='month' && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return {ok:false,error:'invalid_month'};
+  const lock=LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const index=getReadIndex_(sheet);
+    let spans=[];
+    if(scope==='month') {
+      spans=(index.months[month]?index.months[month].spans:[]).map(s=>s.slice());
+      // Previous category punch is context for a legacy interval crossing a month boundary.
+      const previous={};
+      Object.keys(index.months).filter(m=>m<month).sort().forEach(m=>{
+        Object.entries(index.months[m].last).forEach(([key,value])=>{
+          if(!previous[key] || previous[key][1]<value[1]) previous[key]=value;
+        });
+      });
+      Object.values(previous).forEach(v=>spans.push([v[0],v[0]]));
+    } else if(scope==='legacy') {
+      // Compatibility for app tabs opened before deployment. New clients always specify scope.
+      if(index.lastRow>1) spans.push([2,index.lastRow]);
+    } else {
+      const rows=new Set(index.recent.concat(Object.values(index.latest),...Object.values(index.sessions)));
+      rows.forEach(n=>spans.push([n,n]));
+    }
+    const logs=readIndexedRows_(sheet,spans), roster=readRoster_(ss);
+    return {ok:true,action:'read',schemaVersion:4,scope:scope,month:scope==='month'?month:null,
+      revision:index.revision,months:Object.keys(index.months).sort().reverse(),logs:logs,
+      users:roster.users,transportationCosts:roster.transportationCosts,
+      serverTime:Utilities.formatDate(new Date(),'Asia/Tokyo','yyyy-MM-dd HH:mm:ss')};
+  } finally {lock.releaseLock();}
 }
 
 /**
@@ -639,6 +727,7 @@ function deleteLog_(sheet, params) {
 
       if (matchedById || matchedByNameTime) {
         sheet.deleteRow(i + 1);
+        invalidateAttendanceIndex_();
         isDeleted = true;
         break;
       }

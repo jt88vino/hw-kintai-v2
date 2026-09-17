@@ -173,7 +173,12 @@
       users: DEFAULT_USERS.slice(),
       selectedUser: '',
       gasUrl: safeGet('attendance_gas_url', DEFAULT_GAS_URL),
-      logs: sanitizeLogs(safeGet('attendance_logs', [])),
+      logs: sanitizeLogs(safeGet('attendance_recent_logs', [])),
+      monthLogs: null,
+      loadedMonth: '',
+      availableMonths: [],
+      monthLoading: false,
+      monthError: '',
       transportationCosts: safeObject(safeGet('attendance_transportation', {})),
       punchTransport: 'バス・電車（交通費あり）',
       punchMemo: '',
@@ -320,7 +325,7 @@
       $$('.punch-btn').forEach(btn=>btn.addEventListener('click', ()=>triggerPunchConfirmation(btn.dataset.punch)));
       $('refreshBtn').addEventListener('click', ()=>syncLogsFromGAS('manual'));
       $$('.nav-btn').forEach(btn=>btn.addEventListener('click', ()=>setActiveTab(btn.dataset.tab)));
-      $('selectedMonth').addEventListener('change', e=>{ state.selectedMonth=e.target.value; renderDashboard(); });
+      $('selectedMonth').addEventListener('change', e=>{ state.selectedMonth=e.target.value; loadSelectedMonth(); });
       $('adminLogin').addEventListener('submit', handleAdminLogin);
       $('addUserForm').addEventListener('submit', addUser);
       $('lockBtn').addEventListener('click', ()=>{ state.isAdminAuthenticated=false; state.adminToken=''; $('adminPassword').value=''; renderSettings(); });
@@ -422,8 +427,14 @@
       if(!Array.isArray(rawLogs)) throw new Error('勤怠ログを読み取れませんでした。');
       if(Array.isArray(rawLogs)){
         const cleaned = sanitizeLogs(rawLogs);
-        state.logs = cleaned;
-        safeSet('attendance_logs', cleaned);
+        if(body.scope === 'month'){
+          if(body.month !== state.selectedMonth) return;
+          state.monthLogs=cleaned; state.loadedMonth=body.month;
+        } else {
+          state.logs = cleaned;
+          safeSet('attendance_recent_logs', cleaned);
+        }
+        if(Array.isArray(body.months)) state.availableMonths=body.months;
       }
       if(Array.isArray(body.users)){
         const users = sanitizeUsers(body.users);
@@ -496,7 +507,7 @@
 
         try{
           const data = await readGASDataOnce(buildGasUrl({
-            action:'read',
+            action:'read', scope:'recent',
             t:Date.now(),
             rosterConfirm:attempt
           }));
@@ -524,6 +535,22 @@
         : 'GASへの変更が名簿に反映されたことを確認できませんでした。');
     }
 
+    let monthRequestNumber=0;
+    async function loadSelectedMonth(){
+      if(!state.gasUrl) {renderDashboard();return;}
+      const request=++monthRequestNumber, month=state.selectedMonth, gasUrl=state.gasUrl;
+      state.monthLoading=true; state.monthError=''; renderDashboard();
+      try {
+        const data=await readGASDataOnce(buildGasUrl({action:'read',scope:'month',month:month,t:Date.now()}));
+        if(request!==monthRequestNumber || gasUrl!==state.gasUrl) return;
+        if(data.scope!=='month' || data.month!==month) throw new Error('GASの月別読み込みが未更新です。');
+        applyGasReadData(data);
+      } catch(e){
+        if(request===monthRequestNumber) state.monthError=e.message||String(e);
+      } finally {
+        if(request===monthRequestNumber){state.monthLoading=false;if(state.activeTab==='dashboard') renderDashboard();}
+      }
+    }
     let syncPromise=null;
     function syncLogsFromGAS(reason){
       if(syncPromise) return syncPromise;
@@ -533,12 +560,14 @@
     async function performSync(reason){
       if(!state.gasUrl) { renderAll(); return; }
       setSyncing(true);
-      const url = buildGasUrl({ action:'read', t:Date.now() });
+      const url = buildGasUrl({ action:'read', scope:'recent', t:Date.now() });
 
       try{
         const data = await readGASDataOnce(url);
         applyGasReadData(data);
         state.lastSyncError = '';
+        state.readOnlyStartup=false;
+        if(state.activeTab === 'dashboard') await loadSelectedMonth();
         if(reason === 'manual') showStatus('GAS同期が完了しました。', 'success');
       }catch(e){
         state.lastSyncError = e && e.message ? e.message : String(e);
@@ -588,7 +617,7 @@
       return adminRequest(Object.assign({},params,{adminToken:state.adminToken}));
     }
 
-    function renderAll(){ renderPunch(); renderDashboard(); renderSettings(); }
+    function renderAll(){ renderPunch(); if(state.activeTab==='dashboard') renderDashboard(); renderSettings(); }
     function renderPunch(){
       const select = $('selectedUser');
       if(!state.users.includes(state.selectedUser)) state.selectedUser = '';
@@ -600,7 +629,7 @@
       $('workCategory').disabled = state.isPunchSubmitting;
       select.disabled = state.isPunchSubmitting;
       $('transportCard').classList.toggle('hidden', !state.selectedUser);
-      $$('.punch-btn').forEach(btn => btn.disabled = !state.selectedUser || state.isPunchSubmitting);
+      $$('.punch-btn').forEach(btn => btn.disabled = !state.selectedUser || state.isPunchSubmitting || (state.gasUrl && state.readOnlyStartup));
       renderTransportChoice();
       renderRecentLogs();
     }
@@ -631,7 +660,8 @@
       $$('.tab').forEach(el=>el.classList.add('hidden'));
       $(tab+'Tab').classList.remove('hidden');
       $$('.nav-btn').forEach(btn=>btn.classList.toggle('active', btn.dataset.tab === tab));
-      if(tab === 'dashboard' || tab === 'punch') syncLogsFromGAS('tab'); else renderSettings();
+      if(tab === 'dashboard'){ renderDashboard(); loadSelectedMonth(); }
+      else if(tab === 'punch') syncLogsFromGAS('tab'); else renderSettings();
     }
 
     function getUserCurrentStatus(name){
@@ -644,9 +674,10 @@
       return {status:'未出勤', time:getHHMM(latest.time), rawType:latest.type, cls:'none'};
     }
     function calculateMonthlyStats(month){
+      const logs=state.monthLogs || state.logs;
       const stats = {}; state.users.forEach(n=>stats[n]={totalMinutes:0,daysCount:0,paidTransportDays:0,categoryMinutes:{}});
       const groups = {};
-      state.logs.filter(l=>l.month === month).forEach(log=>{
+      logs.filter(l=>l.month === month).forEach(log=>{
         const date = getDatePart(log.time); if(!groups[log.name]) groups[log.name]={}; if(!groups[log.name][date]) groups[log.name][date]=[]; groups[log.name][date].push(log);
       });
       Object.keys(groups).forEach(name=>{
@@ -669,7 +700,7 @@
         // 業務別の複数区間を加算する。休憩開始・退勤までを実働として計上。
         WORK_CATEGORIES.forEach(category=>{
           let previous=null, ms=0;
-          state.logs.filter(l=>l.name===name && l.category===category).sort((a,b)=>timeMs(a.time)-timeMs(b.time)).forEach(log=>{
+          logs.filter(l=>l.name===name && l.category===category).sort((a,b)=>timeMs(a.time)-timeMs(b.time)).forEach(log=>{
             if(previous && log.month===month && ['退勤','休憩開始'].includes(log.type) && ['出勤','休憩終了'].includes(previous.type)) ms+=Math.max(0,timeMs(log.time)-timeMs(previous.time));
             previous=log;
           });
@@ -677,19 +708,25 @@
           if(stats[name]) stats[name].categoryMinutes[category]=categoryMinutes;
           minutes+=categoryMinutes;
         });
-        const allocatedLogs=state.logs.filter(l=>l.name===name && l.month===month && l.category==='業務配分' && l.type==='退勤');
+        const allocatedLogs=logs.filter(l=>l.name===name && l.month===month && l.category==='業務配分' && l.type==='退勤');
         allocatedLogs.forEach(l=>(l.allocations||[]).forEach(a=>{const item=ALLOCATION_ITEMS.find(i=>i.id===a.id);if(item){minutes+=a.minutes;stats[name].categoryMinutes[item.category]=(stats[name].categoryMinutes[item.category]||0)+a.minutes;}}));
         if(stats[name]){stats[name].totalMinutes=minutes;stats[name].daysCount=days;stats[name].paidTransportDays=paid;}
       });
       return stats;
     }
     function renderDashboard(){
-      const months = Array.from(new Set(state.logs.map(l=>l.month).filter(Boolean))).sort().reverse();
+      const months = Array.from(new Set(state.availableMonths.concat(state.logs.map(l=>l.month).filter(Boolean),getCurrentMonth()))).sort().reverse();
       if(!months.includes(state.selectedMonth)) months.unshift(state.selectedMonth);
       $('selectedMonth').innerHTML = months.map(m=>`<option value="${esc(m)}">${esc(m.replace('-','年'))}月</option>`).join('');
       $('selectedMonth').value = state.selectedMonth;
       const title = $('statsCard').querySelector('.card-title'); if(title) title.textContent = `📅 ${state.selectedMonth.replace('-','年')}月 勤務＆交通費集計`;
       $('memberStatus').innerHTML = state.users.map(name=>{ const c=getUserCurrentStatus(name); return `<div class="member-row"><div><b>${esc(name)} さん</b><small>最終打刻: ${c.time !== '-' ? `${esc(c.time)} (${esc(c.rawType)})` : '打刻なし'}</small></div><span class="status-pill ${c.cls}">${esc(c.status)}</span></div>`; }).join('');
+      if(state.gasUrl && (state.monthLoading || state.loadedMonth!==state.selectedMonth || state.monthError)){
+        const message=state.monthLoading?'対象月の勤怠を読み込み中…':state.monthError?'対象月の取得に失敗しました。再同期してください。':'対象月を選択すると勤怠を読み込みます。';
+        $('monthlyStats').innerHTML='<div class="empty">'+esc(message)+'</div>';
+        $('logsTable').innerHTML='<tr><td colspan="5" class="empty">'+esc(message)+'</td></tr>';
+        return;
+      }
       const stats = calculateMonthlyStats(state.selectedMonth);
       $('monthlyStats').innerHTML = state.users.map(name=>{
         const st=stats[name]||{totalMinutes:0,daysCount:0,paidTransportDays:0}; const h=Math.floor(st.totalMinutes/60), m=st.totalMinutes%60, over=h>=80, ratio=Math.min(100, Math.round((st.totalMinutes/(80*60))*100));
@@ -701,11 +738,11 @@
         if(!CATEGORY_USERS.includes(name) || !st) return;
         const detail=document.createElement('div'); detail.className='stat-meta';
         detail.innerHTML=WORK_CATEGORIES.map(c=>{const min=st.categoryMinutes[c]||0;return `${esc(c)}: ${Math.floor(min/60)}時間${min%60}分`;}).join('<br>');
-        const totals={}; state.logs.filter(l=>l.name===name && l.month===state.selectedMonth).forEach(l=>(l.allocations||[]).forEach(a=>{totals[a.id]=(totals[a.id]||0)+a.minutes;}));
+        const totals={}; (state.monthLogs || state.logs).filter(l=>l.name===name && l.month===state.selectedMonth).forEach(l=>(l.allocations||[]).forEach(a=>{totals[a.id]=(totals[a.id]||0)+a.minutes;}));
         detail.innerHTML+='<hr>'+ALLOCATION_ITEMS.filter(i=>totals[i.id]).map(i=>`${esc(i.label)}: ${Math.floor(totals[i.id]/60)}時間${totals[i.id]%60}分`).join('<br>');
         card.appendChild(detail);
       });
-      const filtered = state.logs.filter(l=>l.month === state.selectedMonth);
+      const filtered = (state.monthLogs || state.logs).filter(l=>l.month === state.selectedMonth);
       $('logsTable').innerHTML = filtered.length ? filtered.map(log=>`<tr><td><b>${esc(log.name)}</b></td><td><span class="tag ${logTag(log.type)}">${esc(log.type)}</span></td><td>${log.type==='出勤' && log.transport ? `<span class="transport">${log.transport.indexOf('バス')===0?'🚌 バス・電車':'🚲 自転車'}</span>`:''}${log.memo?`<div class="memo truncate" title="${esc(log.memo)}">${esc(log.memo)}</div>`:''}</td><td style="white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#64748b">${esc(formatWithDayOfWeek(log.time))}</td><td><button class="delete-btn" data-delete-id="${esc(log.id)}">🗑</button></td></tr>`).join('') : `<tr><td colspan="5" class="empty">${esc(state.selectedMonth.replace('-','年'))}月のデータはありません。</td></tr>`;
       $('logsTable').querySelectorAll('[data-delete-id]').forEach(btn=>btn.addEventListener('click', ()=>requestDeleteLog(btn.dataset.deleteId)));
       $('logsTable').querySelectorAll('tr').forEach((row,i)=>{
@@ -836,7 +873,7 @@
         if(Array.isArray(result.allocations)) newLog.allocations=result.allocations;
         state.logs = state.logs.filter(l=>l.id!==newLog.id);
         state.logs = sanitizeLogs([newLog].concat(state.logs));
-        safeSet('attendance_logs', state.logs);
+        safeSet('attendance_recent_logs', state.logs);
         if(punchType==='出勤' || punchType==='退勤'){ state.punchMemo=''; $('punchMemo').value=''; }
         renderAll();
         showStatus(`${userName}さん: [${punchType}] を記録しました (${jst.display})`, 'success');
@@ -859,7 +896,7 @@
     }
 
     function requestDeleteLog(id){
-      const log = state.logs.find(l=>l.id === id); if(!log) return;
+      const log = state.logs.concat(state.monthLogs||[]).find(l=>l.id === id); if(!log) return;
       state.deleteTargetLog = log;
       $('deleteDetails').innerHTML = `<div>メンバー: <b>${esc(log.name)}さん</b></div><div>区分: <b>${esc(log.type)}</b></div><div>時間: <b>${esc(formatWithDayOfWeek(log.time))}</b></div>`;
       $('deletePassword').value = ''; $('deletePasswordError').classList.add('hidden');
@@ -875,7 +912,8 @@
         const auth=await adminRequest({action:'adminLogin',adminPassword:password});
         await adminRequest({action:'delete',id:target.id,adminToken:auth.token});
         state.logs=state.logs.filter(l=>l.id!==target.id);
-        safeSet('attendance_logs',state.logs); closeDeleteModal(); renderAll();
+        if(state.monthLogs) state.monthLogs=state.monthLogs.filter(l=>l.id!==target.id);
+        safeSet('attendance_recent_logs',state.logs); closeDeleteModal(); renderAll();
         showStatus(`${target.name}さんの[${target.type}]を取り消しました。`,'success');
         setTimeout(()=>syncLogsFromGAS('after-delete'),1600);
       } catch(err) { showStatus(err.message,'error'); }
