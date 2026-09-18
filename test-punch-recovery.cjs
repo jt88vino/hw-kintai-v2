@@ -1,0 +1,49 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),crypto=require('node:crypto');
+const source=fs.readFileSync('index.html','utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
+function client(storage=new Map()){
+ let now=0;class Clock extends Date {static now(){return now;}}
+ const nodes=new Map();const el=id=>{if(!nodes.has(id)){const classes=new Set();nodes.set(id,{value:'',textContent:'',innerHTML:'',disabled:false,classes,classList:{toggle(k,v){v?classes.add(k):classes.delete(k)},add:k=>classes.add(k),remove:k=>classes.delete(k)},querySelectorAll:()=>[],insertAdjacentHTML(_,html){this.innerHTML+=html;}});}return nodes.get(id);};
+ const ctx={Date:Clock,URL,URLSearchParams,AbortController,console,setTimeout,clearTimeout,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},window:{location:{hostname:'hw-kintai-v2.vercel.app'},addEventListener(){},crypto},document:{getElementById:el,querySelectorAll:()=>[]}};
+ vm.createContext(ctx);vm.runInContext(source.replace("if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();",`window.test={state,adminRequest,readGASDataOnce,executePunch,closePunchModal,resumePendingPunch,performSync,rememberPendingPunch,renderPendingPunch,readAllocationInputs,
+ setRead:fn=>readGASViaJSONP=fn,setSend:fn=>adminRequest=fn,setWait:fn=>wait=fn,setSyncRead:fn=>readGASDataOnce=fn,
+ prepare:()=>{renderAll=()=>{};renderPunch=()=>{};setSyncing=()=>{};}};`),ctx);
+ const api=ctx.window.test;api.prepare();api.setWait(async ms=>{now+=ms;});return {ctx,api,el,storage,advance:ms=>now+=ms};
+}
+const log={id:crypto.randomUUID(),name:'検証専用',type:'出勤',time:'2026-09-18 09:00:00',month:'2026-09',transport:'自転車・その他（支給なし）',memo:'固定メモ',category:'',allocations:[]};
+const params={...log,requestId:log.id,action:'add',allocations:'[]',receipt:crypto.randomUUID()};
+const draft=()=>({userName:log.name,punchType:log.type,transport:log.transport,memo:log.memo,category:'',fixedTime:{full:log.time,monthOnly:log.month,display:'09:00'}});
+(async()=>{
+ // A pending POST redirect must not block the confirmed receipt or cause a second POST.
+ let c=client(),posts=[];c.ctx.fetch=(url,options)=>{posts.push({url,options});return new Promise(()=>{});};let reads=0;
+ c.api.setRead(async url=>{assert.equal(new URL(url).searchParams.get('receipt'),params.receipt);reads++;return reads===1?{ok:false,pending:true}:{ok:true,action:'add',id:log.id};});
+ assert.equal((await c.api.adminRequest(params)).id,log.id);assert.equal(posts.length,1);assert.equal(posts[0].options.method,'POST');assert.equal(posts[0].options.mode,'no-cors');assert.equal(posts[0].options.credentials,'omit');assert.equal(posts[0].options.body.get('requestId'),log.id);assert.equal(posts[0].options.body.get('receipt'),params.receipt);assert.equal(posts[0].options.signal.aborted,true);
+ // Default reads immediately use Google, with no 25-second API detour.
+ c.api.setRead(async url=>{assert(url.startsWith('https://script.google.com/'));return {ok:true,scope:'recent',logs:[]};});assert.equal((await c.api.readGASDataOnce(posts[0].url+'?action=read&scope=recent')).ok,true);assert.equal(posts.length,1);
+ // An opaque successful response is not a save confirmation. Timeouts never replay the write.
+ c=client();let sent=0;c.ctx.fetch=async()=>{sent++;return {type:'opaque'};};c.api.setRead(async()=>{c.advance(1500);return {ok:false,pending:true};});
+ await assert.rejects(()=>c.api.adminRequest(params),e=>e.code==='result_unconfirmed');assert.equal(sent,1);
+ // A failed POST response may still have saved. The receipt is authoritative.
+ c=client();c.ctx.fetch=async()=>{throw Error('network lost');};c.api.setRead(async()=>({ok:true,action:'add',id:log.id}));assert.equal((await c.api.adminRequest(params)).id,log.id);
+ c.api.setRead(async()=>({ok:false,error:'allocation_mismatch',actualMinutes:165,message:'配分を確認'}));await assert.rejects(()=>c.api.adminRequest(params),e=>e.code==='allocation_mismatch'&&e.actualMinutes===165);
+ // Ambiguous write -> close modal -> reload -> receipt expired -> locate saved ID without writing again.
+ c=client();c.api.state.confirmPunch=draft();let payload;
+ c.api.setSend(async p=>{payload=p;assert(JSON.parse(c.storage.get('attendance_pending_punch')).log.id===p.id);throw Object.assign(Error('offline'),{code:'result_unconfirmed'});});
+ await c.api.executePunch();assert.equal(c.api.state.isPunchSubmitting,false);assert(c.api.state.pendingPunch);assert.equal(c.api.state.logs.length,0);assert.equal(c.el('executePunch').textContent,'保存確認・再送');
+ c.api.closePunchModal();assert(c.api.state.pendingPunch);const pending=c.api.state.pendingPunch;
+ const reloaded=client(c.storage);reloaded.api.resumePendingPunch();assert.equal(reloaded.api.state.confirmPunch.log.id,pending.log.id);assert.equal(reloaded.api.state.confirmPunch.fixedTime.full,pending.log.time);
+ let recoveryWrites=0;reloaded.api.setSend(async()=>{recoveryWrites++;throw Error('must not write');});
+ reloaded.api.setRead(async url=>new URL(url).searchParams.get('action')==='adminResult'?{ok:false,pending:true}:{ok:true,scope:'month',month:pending.log.month,logs:[pending.log]});
+ await reloaded.api.executePunch();assert.equal(recoveryWrites,0);assert.equal(reloaded.api.state.pendingPunch,null);assert.equal(reloaded.api.state.logs[0].id,pending.log.id);assert.equal(reloaded.api.state.confirmPunch,null);
+ // Missing ID permits one explicit retry with the original ID/time/payload; receipt is renewed.
+ c=client();c.api.rememberPendingPunch(log,params.receipt);c.api.resumePendingPunch();c.api.setRead(async url=>new URL(url).searchParams.get('action')==='adminResult'?{ok:false,pending:true}:{ok:true,scope:'month',month:log.month,logs:[]});
+ let release,count=0;c.api.setSend(p=>{count++;assert.equal(p.id,log.id);assert.equal(p.time,log.time);assert.equal(p.memo,log.memo);assert.notEqual(p.receipt,params.receipt);return new Promise(r=>release=r);});
+ const first=c.api.executePunch();for(let i=0;i<12&&!release;i++)await Promise.resolve();await c.api.executePunch();assert.equal(count,1);release({ok:true,id:log.id});await first;assert.equal(c.api.state.pendingPunch,null);
+ // A fresh background read confirms recovery; an old in-flight read cannot undo a newer save.
+ c=client();c.api.rememberPendingPunch(log,params.receipt);c.api.setSyncRead(async()=>({ok:true,scope:'recent',logs:[log]}));await c.api.performSync('auto');assert.equal(c.api.state.pendingPunch,null);
+ let finish;c.api.setSyncRead(()=>new Promise(r=>finish=r));const sync=c.api.performSync('auto');c.api.state.mutationVersion++;finish({ok:true,scope:'recent',logs:[]});await sync;assert.equal(c.api.state.logs[0].id,log.id);
+ // Reloaded checkout retains editable allocation fields if validation is rejected, and its original time.
+ c=client();const ids=['hw_production','hw_support','hw_admin','hw_pro','hw_other','hwa_production','hwa_support','hwa_admin','hwa_text','hwa_other'];const checkout={...log,type:'退勤',name:'田中',category:'業務配分',allocations:ids.map((id,i)=>({id,minutes:i?0:60,memo:i?'':'作業'}))};
+ c.api.rememberPendingPunch(checkout,params.receipt);c.api.resumePendingPunch();assert.equal(c.api.readAllocationInputs()[0].minutes,60);assert.match(c.el('confirmDetails').innerHTML,/checkoutMemo/);
+ c.api.setRead(async()=>({ok:false,error:'allocation_mismatch',actualMinutes:65,message:'配分を確認'}));await c.api.executePunch();assert.equal(c.api.state.pendingPunch,null);assert.equal(c.api.state.confirmPunch.log,null);assert.equal(c.api.state.confirmPunch.targetMinutes,65);assert.equal(c.api.state.confirmPunch.fixedTime.full,log.time);
+ console.log('PASS: direct read, concurrent exact receipt, one POST, no false success, recovery after reload/cache expiry, explicit idempotent retry, immediate lock/release, preserved checkout fields/time, stale-read guard');
+})().catch(e=>{console.error(e);process.exitCode=1});

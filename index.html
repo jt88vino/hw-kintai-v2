@@ -66,6 +66,7 @@
           </div>
         </div>
         <div id="statusMessage" class="status"></div>
+        <div id="pendingPunchCard" class="card hidden" role="status" aria-live="polite"><p id="pendingPunchText" style="margin:0 0 10px"></p><button id="resumePunch" class="mini-btn" type="button">保存確認・再送</button></div>
         <div class="card">
           <label for="selectedUser">あなたの名前を選択してください</label>
           <select id="selectedUser"><option value="">-- 名前を選択 --</option></select>
@@ -191,6 +192,7 @@
       adminToken: '',
       isAdminSubmitting: false,
       confirmPunch: null,
+      pendingPunch: restorePendingRecord(),
       deleteTargetLog: null,
       deleteRecent: false,
       isDeleteSubmitting: false,
@@ -211,7 +213,11 @@
     function safeGet(key, def){
       try{ const raw = localStorage.getItem(key); if(raw === null || raw === '' || raw === '""') return def; return JSON.parse(raw); }catch(e){ return def; }
     }
-    function safeSet(key, value){ try{ localStorage.setItem(key, JSON.stringify(value)); }catch(e){} }
+    function safeSet(key, value){ try{ localStorage.setItem(key, JSON.stringify(value)); return true; }catch(e){return false;} }
+    function restorePendingRecord(){
+      const saved=safeGet('attendance_pending_punch',null);
+      return saved && typeof saved.gasUrl==='string' && typeof saved.receipt==='string' && sanitizeLog(saved.log,0) ? saved : null;
+    }
     function safeObject(v){ return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
     function sanitizeUsers(value){
       if(!Array.isArray(value)) return [];
@@ -316,7 +322,7 @@
         syncLogsFromGAS('startup');
         // 別端末で名簿が変わった場合も、開きっぱなしの画面へ自動反映する。
         setInterval(()=>{
-          if(!document.hidden && !state.isSyncing) syncLogsFromGAS('auto');
+          if(!document.hidden && !state.isSyncing && !state.isPunchSubmitting) syncLogsFromGAS('auto');
         }, 30000);
       }catch(e){ showRuntimeError('起動エラー: ' + (e && e.message ? e.message : e)); }
     }
@@ -337,12 +343,13 @@
       $('gasUrl').addEventListener('change', e=>{ state.adminToken=''; state.isAdminAuthenticated=false; state.gasUrl = e.target.value.trim(); safeSet('attendance_gas_url', state.gasUrl); showStatus('GAS URLを保存しました。', 'success'); syncLogsFromGAS('url-change'); });
       $('cancelPunch').addEventListener('click', closePunchModal);
       $('executePunch').addEventListener('click', executePunch);
+      $('resumePunch').addEventListener('click', resumePendingPunch);
       $('cancelDelete').addEventListener('click', closeDeleteModal);
       $('executeDelete').addEventListener('click', confirmDeleteLog);
       $('deletePassword').addEventListener('input', ()=> $('deleteError').classList.add('hidden'));
       $('showDebugBtn').addEventListener('click', toggleDebug);
       document.addEventListener('visibilitychange', ()=>{
-        if(!document.hidden && !state.isSyncing) syncLogsFromGAS('visible');
+        if(!document.hidden && !state.isSyncing && !state.isPunchSubmitting) syncLogsFromGAS('visible');
       });
     }
     function startClock(){
@@ -491,35 +498,42 @@
         document.head.appendChild(script);
       });
     }
-    function useAttendanceAPI(){
-      return state.gasUrl===DEFAULT_GAS_URL && window.location && window.location.hostname==='hw-kintai-v2.vercel.app';
-    }
-    async function requestAttendanceAPI(params,method='GET'){
-      const controller=new AbortController(), timer=setTimeout(()=>controller.abort(),27000);
-      try {
-        const url=method==='GET'?'/api/attendance?'+new URLSearchParams(params):'/api/attendance';
-        const response=await fetch(url,{method,cache:'no-store',credentials:'same-origin',signal:controller.signal,
-          ...(method==='POST'?{headers:{'Content-Type':'application/json'},body:JSON.stringify(params)}:{})});
-        const result=await response.json();
-        if(!response.ok || !result || result.ok!==true){
-          const err=new Error(result && result.message || '通信結果を確認できませんでした。');
-          err.code=result && result.error; err.actualMinutes=result && result.actualMinutes; throw err;
-        }
-        return result;
-      } finally {clearTimeout(timer);}
-    }
     async function readGASDataOnce(url){
-      if(useAttendanceAPI()) {
-        const query=new URL(url).searchParams;
-        // Reads may safely fall back; writes never retry through a different transport automatically.
-        try {return await requestAttendanceAPI(Object.fromEntries(query));} catch(e) {state.lastSyncError=e.message;}
-      }
+      // Google responds directly; a stalled server-to-Google hop must not delay every read.
       let error;
       for(let attempt=0;attempt<2;attempt++){
-        try { return await readGASViaJSONP(url+'&attempt='+attempt); }
-        catch(e){error=e;if(!attempt)await wait(1200);}
+        try { return await readGASViaJSONP(url+'&attempt='+attempt,10000); }
+        catch(e){error=e;if(!attempt)await wait(250);}
       }
       throw error;
+    }
+
+    function requestError(result){
+      const err=new Error(result.message || '保存結果を確認できませんでした。');
+      err.code=result.error; err.actualMinutes=result.actualMinutes; return err;
+    }
+    async function sendPunchDirect(params){
+      const receipt=params.receipt || window.crypto.randomUUID();
+      const deadline=Date.now()+20000, controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),20000);
+      // POST runs once. Its opaque response is NOT evidence of a saved punch.
+      // Poll the exact receipt concurrently, without waiting for the POST redirect to finish.
+      const post=Promise.resolve().then(()=>fetch(state.gasUrl,{method:'POST',mode:'no-cors',credentials:'omit',signal:controller.signal,
+        body:new URLSearchParams(Object.assign({},params,{receipt}))})).catch(()=>null);
+      try {
+        await wait(400);
+        while(Date.now()<deadline){
+          let result;
+          try {result=await readGASViaJSONP(buildGasUrl({action:'adminResult',receipt,t:Date.now()}),Math.min(6000,deadline-Date.now()));}
+          catch(e){ /* A read may fail even when the original POST saved successfully. */ }
+          if(result && typeof result.ok==='boolean' && !result.pending){
+            if(!result.ok) throw requestError(result);
+            if(result.action==='add' && result.id) return result;
+          }
+          if(Date.now()<deadline) await wait(Math.min(600,deadline-Date.now()));
+        }
+        throw Object.assign(new Error('通信が不安定なため、保存確認を保留しています。送信内容はこの端末に保持しています。'),{code:'result_unconfirmed'});
+      } finally {clearTimeout(timer);controller.abort();void post;}
     }
 
     function wait(ms){
@@ -582,6 +596,7 @@
     let syncPromise=null;
     function syncLogsFromGAS(reason){
       if(syncPromise) return syncPromise;
+      if(state.isPunchSubmitting) return Promise.resolve();
       syncPromise=performSync(reason).finally(()=>{syncPromise=null;});
       return syncPromise;
     }
@@ -589,7 +604,7 @@
       if(!state.gasUrl) { renderAll(); return; }
       setSyncing(true);
       const version=state.mutationVersion;
-      const url = buildGasUrl({ action:'read', scope:'recent', ...(['manual','after-delete'].includes(reason)?{fresh:'1'}:{}), t:Date.now() });
+      const url = buildGasUrl({ action:'read', scope:'recent', ...(['manual','after-delete'].includes(reason)||state.pendingPunch?{fresh:'1'}:{}), t:Date.now() });
 
       try{
         const data = await readGASDataOnce(url);
@@ -598,6 +613,10 @@
         state.lastSyncedAt=data.serverTime||'';
         state.lastSyncError = '';
         state.readOnlyStartup=false;
+        if(state.pendingPunch && !state.isPunchSubmitting && state.pendingPunch.gasUrl===state.gasUrl){
+          const saved=state.logs.find(log=>log.id===state.pendingPunch.log.id);
+          if(saved) completePunch(state.pendingPunch.log,{ok:true,id:saved.id,memo:saved.memo,allocations:saved.allocations});
+        }
         if(state.activeTab === 'dashboard') await loadSelectedMonth();
         if(reason === 'manual') showStatus('GAS同期が完了しました。', 'success');
       }catch(e){
@@ -630,7 +649,7 @@
 
     async function adminRequest(params){
       if(!state.gasUrl) throw new Error('GAS URLが設定されていません。');
-      if(params.action==='add' && useAttendanceAPI()) return requestAttendanceAPI(params,'POST');
+      if(params.action==='add') return sendPunchDirect(params);
       const receipt = window.crypto.randomUUID(), deadline=Date.now()+30000;
       const controller=new AbortController(), postTimer=setTimeout(()=>controller.abort(),12000);
       // Secrets stay in the POST body sent directly to Google. An uncertain POST is never repeated.
@@ -660,6 +679,7 @@
 
     function renderAll(){ renderPunch(); if(state.activeTab==='dashboard') renderDashboard(); renderSettings(); }
     function renderPunch(){
+      renderPendingPunch();
       const select = $('selectedUser');
       if(!state.users.includes(state.selectedUser)) state.selectedUser = '';
       select.innerHTML = '<option value="">-- 名前を選択 --</option>';
@@ -670,7 +690,7 @@
       $('workCategory').disabled = state.isPunchSubmitting;
       select.disabled = state.isPunchSubmitting;
       $('transportCard').classList.toggle('hidden', !state.selectedUser);
-      $$('.punch-btn').forEach(btn => btn.disabled = !state.selectedUser || state.isPunchSubmitting || (state.gasUrl && state.readOnlyStartup));
+      $$('.punch-btn').forEach(btn => btn.disabled = !state.selectedUser || state.isPunchSubmitting || !!state.pendingPunch || (state.gasUrl && state.readOnlyStartup));
       renderTransportChoice();
       renderRecentLogs();
     }
@@ -855,11 +875,12 @@
     }
     function toggleDebug(){
       const box = $('debugBox'); box.classList.toggle('show');
-      box.innerHTML = `<b>起動診断</b><br>ログ件数: ${state.logs.length}<br>GAS URL: ${esc(state.gasUrl ? '設定あり' : '未設定')}<br>GAS同期方式: ${useAttendanceAPI()?'アプリAPI / 保存結果を直接確認':'Google直接通信'}<br>最後のGAS同期エラー: ${esc(state.lastSyncError || 'なし')}<br>localStorageログ: ${esc(String((localStorage.getItem('attendance_logs')||'').slice(0,180)))}${(localStorage.getItem('attendance_logs')||'').length>180?'...':''}`;
+      box.innerHTML = `<b>起動診断</b><br>ログ件数: ${state.logs.length}<br>GAS URL: ${esc(state.gasUrl ? '設定あり' : '未設定')}<br>GAS同期方式: Google直接通信 / 送信と保存確認を並行処理<br>最後のGAS同期エラー: ${esc(state.lastSyncError || 'なし')}<br>localStorageログ: ${esc(String((localStorage.getItem('attendance_logs')||'').slice(0,180)))}${(localStorage.getItem('attendance_logs')||'').length>180?'...':''}`;
     }
 
     function triggerPunchConfirmation(type){
       if(state.isPunchSubmitting) return;
+      if(state.pendingPunch){resumePendingPunch();return;}
       if(!state.selectedUser){ showStatus('名前を選択してください。','error'); return; }
       const category = CATEGORY_USERS.includes(state.selectedUser) ? '業務配分' : '';
       const fixedTime=getJSTDateTime();
@@ -871,8 +892,72 @@
       if(type==='退勤' && category) renderAllocationInputs(minutes);
       if(type==='退勤') $('confirmDetails').innerHTML += `<div><label for="checkoutMemo">補足・備考（任意）</label><textarea id="checkoutMemo" class="textarea" maxlength="1000" placeholder="例：講座の準備、受注対応、WT業務など">${esc(state.confirmPunch.memo)}</textarea></div>`;
       $('confirmDetails').innerHTML += '<div id="punchSendStatus" role="status" aria-live="polite"></div>';
+      $('executePunch').textContent='はい、打刻する';
+      $('cancelPunch').textContent='キャンセル';
       $('confirmModal').classList.add('show');
       if(category && type==='退勤') { $('confirmDetails').querySelectorAll('[data-allocation-input]').forEach(el=>el.addEventListener('input',updateAllocationTotal)); updateAllocationTotal(); }
+    }
+    function renderPendingPunch(){
+      const pending=state.pendingPunch;
+      $('pendingPunchCard').classList.toggle('hidden',!pending);
+      if(!pending) return;
+      $('pendingPunchText').textContent=`${pending.log.name}さんの${pending.log.type}（${formatWithDayOfWeek(pending.log.time)}）は保存確認中です。`;
+      $('resumePunch').disabled=state.isPunchSubmitting;
+    }
+    function rememberPendingPunch(log,receipt){
+      state.pendingPunch={gasUrl:state.gasUrl,log,receipt};
+      state.pendingStored=safeSet('attendance_pending_punch',state.pendingPunch);
+    }
+    function clearPendingPunch(){
+      state.pendingPunch=null;safeSet('attendance_pending_punch',null);
+    }
+    function resumePendingPunch(){
+      if(state.isPunchSubmitting || !state.pendingPunch) return;
+      const {log}=state.pendingPunch;
+      state.confirmPunch={userName:log.name,punchType:log.type,category:log.category,transport:log.transport,memo:log.memo,
+        allocations:log.allocations,log,retry:true,targetMinutes:(log.allocations||[]).reduce((n,a)=>n+a.minutes,0),
+        fixedTime:{full:log.time,monthOnly:log.month,display:getHHMM(log.time)}};
+      $('confirmDetails').innerHTML=`<div class="row"><span>お名前:</span><span>${esc(log.name)} さん</span></div><div class="row"><span>打刻区分:</span><span>${esc(log.type)}</span></div><p>${esc(formatWithDayOfWeek(log.time))}</p><p style="white-space:pre-wrap">${esc(log.memo)}</p><p>保存済みか確認し、未確認の場合は同じ時刻・内容で再送します。二重には記録しません。</p><div id="punchSendStatus" role="status" aria-live="polite"></div>`;
+      if(log.type==='退勤'){
+        if(log.category==='業務配分'){
+          renderAllocationInputs(state.confirmPunch.targetMinutes);
+          (log.allocations||[]).forEach(a=>{if(ALLOCATION_ITEMS.some(item=>item.id===a.id)){
+            $(a.id+'_hours').value=Math.floor(a.minutes/60);$(a.id+'_minutes').value=a.minutes%60;$(a.id+'_memo').value=a.memo;
+          }});
+          $('confirmDetails').querySelectorAll('[data-allocation-input]').forEach(el=>{el.disabled=true;el.addEventListener('input',updateAllocationTotal);});
+          updateAllocationTotal();
+        }
+        $('confirmDetails').insertAdjacentHTML('beforeend',`<label for="checkoutMemo">補足・備考</label><textarea id="checkoutMemo" class="textarea" disabled>${esc(log.memo)}</textarea>`);
+      }
+      $('executePunch').textContent='保存確認・再送';
+      $('cancelPunch').textContent='閉じる';
+      $('confirmModal').classList.add('show');
+    }
+    async function findPendingPunch(pending){
+      let result;
+      try {result=await readGASViaJSONP(buildGasUrl({action:'adminResult',receipt:pending.receipt,t:Date.now()}),5000);} catch(e){}
+      if(result && !result.pending && typeof result.ok==='boolean'){
+        if(!result.ok && ['invalid_allocation','allocation_mismatch','missing_clockin','unexpected_allocation','invalid_category','missing_required_params'].includes(result.error)) throw requestError(result);
+        if(result.ok && result.id && result.action==='add') return result;
+      }
+      // The receipt cache expires after a minute. Confirm older requests by their persistent ID.
+      const data=await readGASDataOnce(buildGasUrl({action:'read',scope:'month',month:pending.log.month,fresh:'1',t:Date.now()}));
+      if(!data || data.ok!==true || data.scope!=='month' || data.month!==pending.log.month || !Array.isArray(data.logs)) throw new Error('保存状況を取得できませんでした。通信を確認して、もう一度お試しください。');
+      const saved=sanitizeLogs(data.logs).find(log=>log.id===pending.log.id);
+      return saved?{ok:true,action:'add',id:saved.id,memo:saved.memo,allocations:saved.allocations}:null;
+    }
+    function completePunch(log,result){
+      const saved=Object.assign({},log,{id:String(result.id||log.id)});
+      if(typeof result.memo==='string') saved.memo=result.memo;
+      if(Array.isArray(result.allocations)) saved.allocations=result.allocations;
+      state.mutationVersion++;
+      if(state.monthLogs && state.loadedMonth===saved.month) state.monthLogs=sanitizeLogs([saved].concat(state.monthLogs.filter(l=>l.id!==saved.id)));
+      state.logs=sanitizeLogs([saved].concat(state.logs.filter(l=>l.id!==saved.id)));
+      safeSet('attendance_recent_logs',state.logs);
+      if(saved.type==='出勤' || saved.type==='退勤'){state.punchMemo='';$('punchMemo').value='';}
+      clearPendingPunch();state.lastSyncError='';state.confirmPunch=null;
+      $('confirmModal').classList.remove('show');
+      renderAll();showStatus(`${saved.name}さん: [${saved.type}] を記録しました (${getHHMM(saved.time)})`,'success');
     }
     function closePunchModal(){ if(state.isPunchSubmitting) return; state.confirmPunch=null; $('confirmModal').classList.remove('show'); }
     async function executePunch(){
@@ -888,6 +973,7 @@
       state.isPunchSubmitting = true;
       const executeButton = $('executePunch');
       const originalButtonText = executeButton.textContent;
+      const progressTimer=setTimeout(()=>{if(state.isPunchSubmitting) $('punchSendStatus').textContent='スプレッドシートへの保存を確認しています。そのままお待ちください。';},4000);
       executeButton.disabled = true;
       executeButton.textContent = '送信中…';
       $('cancelPunch').disabled = true;
@@ -906,32 +992,33 @@
         draft.log = newLog;
         if(!state.gasUrl) throw new Error('連携先が設定されていません。管理者に確認してください。');
         renderPunch();
-        // 同じ確認画面の再試行では同一ID・時刻・内容を再利用する。
-        const result = await adminRequest(Object.assign({},newLog,{action:'add',requestId:newLog.id,allocations:JSON.stringify(newLog.allocations)}));
-        if(!result || result.ok!==true) throw new Error(result && (result.message || result.error) || '保存結果を確認できませんでした。');
-        newLog.id = String(result.id || newLog.id);
-        if(typeof result.memo==='string') newLog.memo=result.memo;
-        if(Array.isArray(result.allocations)) newLog.allocations=result.allocations;
-        state.mutationVersion++;
-        if(state.monthLogs && state.loadedMonth===newLog.month) state.monthLogs=sanitizeLogs([newLog].concat(state.monthLogs.filter(l=>l.id!==newLog.id)));
-        state.logs = state.logs.filter(l=>l.id!==newLog.id);
-        state.logs = sanitizeLogs([newLog].concat(state.logs));
-        safeSet('attendance_recent_logs', state.logs);
-        if(punchType==='出勤' || punchType==='退勤'){ state.punchMemo=''; $('punchMemo').value=''; }
-        renderAll();
-        showStatus(`${userName}さん: [${punchType}] を記録しました (${jst.display})`, 'success');
-        state.confirmPunch = null;
-        $('confirmModal').classList.remove('show');
-        // Saved log is already authoritative; next background sync fetches other devices' changes.
+        // Retain the same ID, timestamp and payload across retries and reloads.
+        const pending=state.pendingPunch;
+        if(pending && pending.gasUrl!==state.gasUrl) throw new Error('連携先が変更されています。管理者に元の連携先を確認してください。');
+        let result=null;
+        if(pending && draft.retry){
+          $('punchSendStatus').textContent='前回の保存状況を確認しています…';
+          result=await findPendingPunch(pending);
+        }
+        if(!result){
+          const receipt=window.crypto.randomUUID();
+          rememberPendingPunch(newLog,receipt);
+          result=await adminRequest(Object.assign({},newLog,{action:'add',requestId:newLog.id,receipt,allocations:JSON.stringify(newLog.allocations)}));
+        }
+        if(!result || result.ok!==true) throw new Error('保存結果を確認できませんでした。');
+        completePunch(newLog,result);
       }catch(err){
-        if(err.code && ['invalid_allocation','allocation_mismatch','missing_clockin','unexpected_allocation'].includes(err.code)){draft.log=null;if(Number.isInteger(err.actualMinutes)){draft.targetMinutes=err.actualMinutes;updateAllocationTotal();}}
+        if(err.code && ['invalid_allocation','allocation_mismatch','missing_clockin','unexpected_allocation','invalid_category','missing_required_params'].includes(err.code)){draft.log=null;clearPendingPunch();if(Number.isInteger(err.actualMinutes)){draft.targetMinutes=err.actualMinutes;updateAllocationTotal();}}
         state.lastSyncError = err && err.message ? err.message : String(err);
-        $('punchSendStatus').textContent = '保存を確認できませんでした。同じボタンでもう一度確認できます。' + state.lastSyncError;
+        draft.retry=!!draft.log;
+        $('punchSendStatus').textContent = draft.log ? '保存確認を保留しています。「保存確認・再送」で続けられます。'+(state.pendingStored===false?'この画面を閉じずに再試行してください。':'画面を閉じても送信内容は保持されます。') : state.lastSyncError;
       }finally{
+        clearTimeout(progressTimer);
         state.isPunchSubmitting = false;
         executeButton.disabled = false;
-        executeButton.textContent = originalButtonText;
+        executeButton.textContent = state.pendingPunch?'保存確認・再送':originalButtonText;
         $('cancelPunch').disabled = false;
+        $('cancelPunch').textContent=state.pendingPunch?'閉じる':'キャンセル';
         if($('checkoutMemo')) $('checkoutMemo').disabled = !!draft.log;
         $('confirmDetails').querySelectorAll('[data-allocation-input]').forEach(el=>el.disabled=!!draft.log);
         renderPunch();
