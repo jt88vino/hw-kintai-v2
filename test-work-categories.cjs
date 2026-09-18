@@ -1,7 +1,8 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const rows=[['timestamp','name','type','time','month','id','transport','memo','category']];let serial=0;
-const sheet={getLastRow:()=>rows.length,appendRow:r=>rows.push(r),getRange:(r,c,n=1,w=1)=>({getDisplayValues:()=>rows.slice(r-1,r-1+n).map(row=>row.slice(c-1,c-1+w)),setFormula(){return this},setNumberFormat(){return this}})};
-const gas={LockService:{getScriptLock:()=>({waitLock(){},releaseLock(){}})},SpreadsheetApp:{flush(){}}};vm.createContext(gas);vm.runInContext(fs.readFileSync('Code.gs','utf8')+';this.items=ALLOCATION_ITEMS;',gas);
+const sheet={getLastRow:()=>rows.length,appendRow:r=>rows.push(r),getRange:(r,c,n=1,w=1)=>({createTextFinder(value){const found=rows.slice(r-1,r-1+n).flatMap((row,i)=>String(row[c-1])===value?[{getRow:()=>r+i}]:[]);return {matchEntireCell(){return this},findNext:()=>found[0]||null,findAll:()=>found}},getDisplayValues:()=>rows.slice(r-1,r-1+n).map(row=>row.slice(c-1,c-1+w)),setFormula(){return this},setNumberFormat(){return this}})};
+const cache=new Map(),props=new Map();
+const gas={CacheService:{getScriptCache:()=>({get:k=>cache.get(k)||null,put:(k,v)=>cache.set(k,v),remove:k=>cache.delete(k)})},PropertiesService:{getScriptProperties:()=>({getProperty:k=>props.get(k)||null,setProperty:(k,v)=>props.set(k,v),deleteProperty:k=>props.delete(k)})},Utilities:{getUuid:()=>require('crypto').randomUUID()},LockService:{getScriptLock:()=>({waitLock(){},releaseLock(){}})},SpreadsheetApp:{flush(){}}};vm.createContext(gas);vm.runInContext(fs.readFileSync('Code.gs','utf8')+';this.items=ALLOCATION_ITEMS;',gas);
 const punch=(type,time,extra={})=>gas.addLog_(sheet,{id:'id-'+(++serial),name:'田中',type,time:'2026-09-17 '+time+':00',month:'2026-09',category:'業務配分',...extra});
 assert.equal(punch('出勤','09:00').ok,true);assert.equal(punch('休憩開始','10:00').ok,true);assert.equal(punch('休憩終了','10:15').ok,true);
 const alloc=gas.items.map(i=>({id:i.id,minutes:0,memo:''}));alloc[0].minutes=60;alloc[0].memo='伝票作成';alloc[8].minutes=105;alloc[8].memo='動画制作';

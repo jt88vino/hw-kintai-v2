@@ -193,6 +193,8 @@
       confirmPunch: null,
       deleteTargetLog: null,
       lastSyncError: '',
+      mutationVersion: 0,
+      lastSyncedAt: '',
       readOnlyStartup: true
     };
 
@@ -299,7 +301,7 @@
     function setSyncing(v){
       state.isSyncing = !!v;
       $('syncText').textContent = v ? '同期中...' : '';
-      ['recentCard','membersCard','statsCard','tableCard'].forEach(id => { const el=$(id); if(el) el.classList.toggle('syncing', !!v); });
+      ['recentCard','membersCard','statsCard','tableCard'].forEach(id => { const el=$(id); if(el) el.classList.toggle('syncing', !!v && (id==='recentCard'?state.logs.length===0:id==='membersCard'?state.readOnlyStartup:!state.loadedMonth)); });
     }
 
     function init(){
@@ -312,7 +314,7 @@
         // 別端末で名簿が変わった場合も、開きっぱなしの画面へ自動反映する。
         setInterval(()=>{
           if(!document.hidden && !state.isSyncing) syncLogsFromGAS('auto');
-        }, 60000);
+        }, 30000);
       }catch(e){ showRuntimeError('起動エラー: ' + (e && e.message ? e.message : e)); }
     }
 
@@ -486,7 +488,29 @@
         document.head.appendChild(script);
       });
     }
+    function useAttendanceAPI(){
+      return state.gasUrl===DEFAULT_GAS_URL && window.location && window.location.hostname==='hw-kintai-v2.vercel.app';
+    }
+    async function requestAttendanceAPI(params,method='GET'){
+      const controller=new AbortController(), timer=setTimeout(()=>controller.abort(),27000);
+      try {
+        const url=method==='GET'?'/api/attendance?'+new URLSearchParams(params):'/api/attendance';
+        const response=await fetch(url,{method,cache:'no-store',credentials:'same-origin',signal:controller.signal,
+          ...(method==='POST'?{headers:{'Content-Type':'application/json'},body:JSON.stringify(params)}:{})});
+        const result=await response.json();
+        if(!response.ok || !result || result.ok!==true){
+          const err=new Error(result && result.message || '通信結果を確認できませんでした。');
+          err.code=result && result.error; err.actualMinutes=result && result.actualMinutes; throw err;
+        }
+        return result;
+      } finally {clearTimeout(timer);}
+    }
     async function readGASDataOnce(url){
+      if(useAttendanceAPI()) {
+        const query=new URL(url).searchParams;
+        // Reads may safely fall back; writes never retry through a different transport automatically.
+        try {return await requestAttendanceAPI(Object.fromEntries(query));} catch(e) {state.lastSyncError=e.message;}
+      }
       let error;
       for(let attempt=0;attempt<2;attempt++){
         try { return await readGASViaJSONP(url+'&attempt='+attempt); }
@@ -538,11 +562,12 @@
     let monthRequestNumber=0;
     async function loadSelectedMonth(){
       if(!state.gasUrl) {renderDashboard();return;}
-      const request=++monthRequestNumber, month=state.selectedMonth, gasUrl=state.gasUrl;
+      const request=++monthRequestNumber, month=state.selectedMonth, gasUrl=state.gasUrl, version=state.mutationVersion;
       state.monthLoading=true; state.monthError=''; renderDashboard();
       try {
         const data=await readGASDataOnce(buildGasUrl({action:'read',scope:'month',month:month,t:Date.now()}));
         if(request!==monthRequestNumber || gasUrl!==state.gasUrl) return;
+        if(version!==state.mutationVersion) {state.loadedMonth=''; return;}
         if(data.scope!=='month' || data.month!==month) throw new Error('GASの月別読み込みが未更新です。');
         applyGasReadData(data);
       } catch(e){
@@ -560,11 +585,14 @@
     async function performSync(reason){
       if(!state.gasUrl) { renderAll(); return; }
       setSyncing(true);
-      const url = buildGasUrl({ action:'read', scope:'recent', t:Date.now() });
+      const version=state.mutationVersion;
+      const url = buildGasUrl({ action:'read', scope:'recent', ...(reason==='manual'?{fresh:'1'}:{}), t:Date.now() });
 
       try{
         const data = await readGASDataOnce(url);
+        if(version!==state.mutationVersion) return;
         applyGasReadData(data);
+        state.lastSyncedAt=data.serverTime||'';
         state.lastSyncError = '';
         state.readOnlyStartup=false;
         if(state.activeTab === 'dashboard') await loadSelectedMonth();
@@ -599,6 +627,7 @@
 
     async function adminRequest(params){
       if(!state.gasUrl) throw new Error('GAS URLが設定されていません。');
+      if(params.action==='add' && useAttendanceAPI()) return requestAttendanceAPI(params,'POST');
       const receipt = window.crypto.randomUUID();
       // パスワード・認証トークンはURLやブラウザ保存領域へ入れない。
       await timeoutPromise(fetch(state.gasUrl, {method:'POST', mode:'no-cors', credentials:'omit',
@@ -814,7 +843,7 @@
     }
     function toggleDebug(){
       const box = $('debugBox'); box.classList.toggle('show');
-      box.innerHTML = `<b>起動診断</b><br>ログ件数: ${state.logs.length}<br>GAS URL: ${esc(state.gasUrl ? '設定あり' : '未設定')}<br>GAS同期方式: JSONP優先 / fetch保険<br>最後のGAS同期エラー: ${esc(state.lastSyncError || 'なし')}<br>localStorageログ: ${esc(String((localStorage.getItem('attendance_logs')||'').slice(0,180)))}${(localStorage.getItem('attendance_logs')||'').length>180?'...':''}`;
+      box.innerHTML = `<b>起動診断</b><br>ログ件数: ${state.logs.length}<br>GAS URL: ${esc(state.gasUrl ? '設定あり' : '未設定')}<br>GAS同期方式: ${useAttendanceAPI()?'アプリAPI / 保存結果を直接確認':'Google直接通信'}<br>最後のGAS同期エラー: ${esc(state.lastSyncError || 'なし')}<br>localStorageログ: ${esc(String((localStorage.getItem('attendance_logs')||'').slice(0,180)))}${(localStorage.getItem('attendance_logs')||'').length>180?'...':''}`;
     }
 
     function triggerPunchConfirmation(type){
@@ -871,6 +900,8 @@
         newLog.id = String(result.id || newLog.id);
         if(typeof result.memo==='string') newLog.memo=result.memo;
         if(Array.isArray(result.allocations)) newLog.allocations=result.allocations;
+        state.mutationVersion++;
+        if(state.monthLogs && state.loadedMonth===newLog.month) state.monthLogs=sanitizeLogs([newLog].concat(state.monthLogs.filter(l=>l.id!==newLog.id)));
         state.logs = state.logs.filter(l=>l.id!==newLog.id);
         state.logs = sanitizeLogs([newLog].concat(state.logs));
         safeSet('attendance_recent_logs', state.logs);
@@ -879,7 +910,7 @@
         showStatus(`${userName}さん: [${punchType}] を記録しました (${jst.display})`, 'success');
         state.confirmPunch = null;
         $('confirmModal').classList.remove('show');
-        setTimeout(()=>syncLogsFromGAS('after-add'), 1800);
+        // Saved log is already authoritative; next background sync fetches other devices' changes.
       }catch(err){
         if(err.code && ['invalid_allocation','allocation_mismatch','missing_clockin','unexpected_allocation'].includes(err.code)){draft.log=null;if(Number.isInteger(err.actualMinutes)){draft.targetMinutes=err.actualMinutes;updateAllocationTotal();}}
         state.lastSyncError = err && err.message ? err.message : String(err);
@@ -911,6 +942,7 @@
       try {
         const auth=await adminRequest({action:'adminLogin',adminPassword:password});
         await adminRequest({action:'delete',id:target.id,adminToken:auth.token});
+        state.mutationVersion++;
         state.logs=state.logs.filter(l=>l.id!==target.id);
         if(state.monthLogs) state.monthLogs=state.monthLogs.filter(l=>l.id!==target.id);
         safeSet('attendance_recent_logs',state.logs); closeDeleteModal(); renderAll();

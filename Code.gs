@@ -77,6 +77,10 @@ function handleRequest_(e, isPost) {
     return createResponse_(e, result);
   }
   try {
+    if(action==='read' && params.scope==='recent' && params.fresh!=='1') {
+      const cached=CacheService.getScriptCache().get('attendance:recent');
+      if(cached) return createResponse_(e,JSON.parse(cached));
+    }
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = action === "read" ? ss.getSheetByName(MASTER_SHEET_NAME) : getOrCreateMasterSheet_(ss);
 
@@ -205,7 +209,8 @@ function addLog_(sheet, params) {
     if (category === "業務配分" && type === "退勤") {
       const error = validateAllocations_(allocations);
       if (error) return error;
-      const history = sheet.getLastRow()>1 ? sheet.getRange(2,1,sheet.getLastRow()-1,9).getDisplayValues().map(r=>({name:r[1],type:r[2],time:r[3],category:r[8]})) : [];
+      const readIndex=getReadIndex_(sheet);
+      const history=readIndexedRows_(sheet,(readIndex.sessions[name]||[]).map(n=>[n,n]));
       const actual = shiftMinutes_(history, name, time);
       if (actual === null) return {ok:false,error:"missing_clockin",message:"出勤の記録が見つかりません。同期して確認してください。"};
       if (allocations.reduce((n,a)=>n+a.minutes,0)!==actual) return {ok:false,error:"allocation_mismatch",actualMinutes:actual,message:"配分合計を実働"+actual+"分に合わせてください。"};
@@ -217,6 +222,7 @@ function addLog_(sheet, params) {
       memo=details.join("｜");
     } else if (allocations.length) return {ok:false,error:"unexpected_allocation",message:"業務配分は対象者の退勤時に入力してください。"};
 
+    CacheService.getScriptCache().remove('attendance:recent');
     sheet.appendRow([
       new Date(),
       name,
@@ -243,6 +249,7 @@ function addLog_(sheet, params) {
     }
     if(allocations.length) sheet.getRange(rowNumber,11,1,10).setNumberFormat("[h]:mm");
     SpreadsheetApp.flush();
+    CacheService.getScriptCache().remove('attendance:recent');
 
     return {
       memo: memo,
@@ -266,16 +273,13 @@ function findExistingLogId_(sheet, logId, name, type, time, category) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return "";
 
-  const rows = sheet.getRange(2, 1, lastRow - 1, MASTER_HEADERS.length).getDisplayValues();
-  for (let i = rows.length - 1; i >= 0; i--) {
-    const row = rows[i];
-    const rowId = row[5] ? String(row[5]) : "";
-    const sameId = rowId && rowId === logId;
-    const samePunch = row[1] === name && row[2] === type && row[3] === time && (row[8] || "") === (category || "");
-
-    if (sameId || samePunch) {
-      return rowId || logId;
-    }
+  // Search only ID/time columns on the Sheets side; fetch full rows only for candidates.
+  const idMatch=sheet.getRange(2,6,lastRow-1,1).createTextFinder(String(logId)).matchEntireCell(true).findNext();
+  if(idMatch) return String(logId);
+  const candidates=sheet.getRange(2,4,lastRow-1,1).createTextFinder(String(time)).matchEntireCell(true).findAll();
+  for(const candidate of candidates) {
+    const row=sheet.getRange(candidate.getRow(),1,1,9).getDisplayValues()[0];
+    if(row[1]===name && row[2]===type && row[3]===time && (row[8]||'')===(category||'')) return String(row[5]||logId);
   }
 
   return "";
@@ -289,9 +293,14 @@ function findExistingLogId_(sheet, logId, name, type, time, category) {
 const READ_INDEX_PREFIX = 'ATTENDANCE_READ_INDEX_';
 function invalidateAttendanceIndex_() {
   PropertiesService.getScriptProperties().deleteProperty(READ_INDEX_PREFIX + 'meta');
+  CacheService.getScriptCache().remove('attendance:recent');
 }
 function attendanceSheetChanged(e) {
-  if (!e || !e.range || e.range.getSheet().getName() === MASTER_SHEET_NAME) invalidateAttendanceIndex_();
+  const lock=LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    CacheService.getScriptCache().remove('attendance:roster');
+    if (!e || !e.range || e.range.getSheet().getName() === MASTER_SHEET_NAME) invalidateAttendanceIndex_();
+  } finally {lock.releaseLock();}
 }
 function setupAttendanceReadIndex() {
   const triggers = ScriptApp.getProjectTriggers();
@@ -395,6 +404,10 @@ function readData_(ss, sheet, params) {
   if(scope==='month' && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return {ok:false,error:'invalid_month'};
   const lock=LockService.getScriptLock(); lock.waitLock(10000);
   try {
+    if(scope==='recent' && params.fresh!=='1') {
+      const cached=CacheService.getScriptCache().get('attendance:recent');
+      if(cached) return JSON.parse(cached);
+    }
     const index=getReadIndex_(sheet);
     let spans=[];
     if(scope==='month') {
@@ -415,10 +428,15 @@ function readData_(ss, sheet, params) {
       rows.forEach(n=>spans.push([n,n]));
     }
     const logs=readIndexedRows_(sheet,spans), roster=readRoster_(ss);
-    return {ok:true,action:'read',schemaVersion:4,scope:scope,month:scope==='month'?month:null,
+    const result={ok:true,action:'read',schemaVersion:5,scope:scope,month:scope==='month'?month:null,
       revision:index.revision,months:Object.keys(index.months).sort().reverse(),logs:logs,
       users:roster.users,transportationCosts:roster.transportationCosts,
       serverTime:Utilities.formatDate(new Date(),'Asia/Tokyo','yyyy-MM-dd HH:mm:ss')};
+    if(scope==='recent') {
+      const value=JSON.stringify(result);
+      if(value.length<25000) CacheService.getScriptCache().put('attendance:recent',value,15);
+    }
+    return result;
   } finally {lock.releaseLock();}
 }
 
@@ -426,6 +444,8 @@ function readData_(ss, sheet, params) {
  * 「〇〇_勤務表」シートを全端末共通の名簿として読み取る。
  */
 function readRoster_(ss) {
+  const cache=CacheService.getScriptCache(), cached=cache.get('attendance:roster');
+  if(cached) return JSON.parse(cached);
   const users = [];
   const transportationCosts = {};
 
@@ -452,10 +472,9 @@ function readRoster_(ss) {
     }
   });
 
-  return {
-    users: users,
-    transportationCosts: transportationCosts
-  };
+  const roster={users:users,transportationCosts:transportationCosts};
+  cache.put('attendance:roster',JSON.stringify(roster),300);
+  return roster;
 }
 
 /**
@@ -502,6 +521,8 @@ function addUser_(ss, params) {
     ss.moveActiveSheet(ss.getNumSheets());
     SpreadsheetApp.flush();
 
+    CacheService.getScriptCache().remove('attendance:roster');
+    CacheService.getScriptCache().remove('attendance:recent');
     const roster = readRoster_(ss);
     return {
       ok: true,
@@ -559,6 +580,8 @@ function deleteUser_(ss, params) {
     targetSheet.hideSheet();
     SpreadsheetApp.flush();
 
+    CacheService.getScriptCache().remove('attendance:roster');
+    CacheService.getScriptCache().remove('attendance:recent');
     const roster = readRoster_(ss);
     return {
       ok: true,
