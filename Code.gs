@@ -56,13 +56,14 @@ function handleRequest_(e, isPost) {
     const value = /^[a-f0-9-]{36}$/.test(key) ? CacheService.getScriptCache().get("result:" + key) : null;
     return createResponse_(e, value ? JSON.parse(value) : {ok:false, pending:true});
   }
-  if (adminActions.indexOf(action) !== -1 || (action === "add" && isPost)) {
+  if (adminActions.indexOf(action) !== -1 || action === "deleteRecent" || (action === "add" && isPost)) {
     if (!isPost || params.callback) return createResponse_(e, {ok:false, error:"post_required"});
     if (!/^[a-f0-9-]{36}$/.test(String(params.receipt || ""))) return createResponse_(e, {ok:false, error:"invalid_receipt"});
     let result;
     try {
       if (action === "adminLogin") result = loginAdmin_(params);
       else if (action === "add") { const addSS = SpreadsheetApp.openById(SPREADSHEET_ID); result = addLog_(getOrCreateMasterSheet_(addSS), params); }
+      else if (action === "deleteRecent") { const recentSS = SpreadsheetApp.openById(SPREADSHEET_ID); result = deleteLog_(getOrCreateMasterSheet_(recentSS), params, true); }
       else {
         if(action==='delete' && params.adminPassword) {
           const auth=loginAdmin_(params);
@@ -722,8 +723,9 @@ function validateUserName_(value) {
  * 打刻データ削除
  * idがあればid優先。idがない場合は name + time で削除。
  */
-function deleteLog_(sheet, params) {
-  const authError = validateAdmin_(params, "delete");
+function deleteLog_(sheet, params, recentOnly) {
+  // Only the dedicated POST action may cancel the eight logs shown on the punch screen.
+  const authError = recentOnly === true ? null : validateAdmin_(params, "delete");
   if (authError) return authError;
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
@@ -742,6 +744,14 @@ function deleteLog_(sheet, params) {
       };
     }
 
+    if(recentOnly === true) {
+      if(!targetId) return {ok:false,error:'missing_delete_params',message:'削除対象のIDが必要です。'};
+      const index=getReadIndex_(sheet);
+      const recent=readIndexedRows_(sheet,index.recent.map(n=>[n,n])).slice(0,8);
+      if(!recent.some(log=>log.id===String(targetId))) return {
+        ok:false,error:'not_recent',message:'直近の打刻ログの対象外です。再読み込みして確認してください。過去のログは勤務履歴から取り消せます。'
+      };
+    }
     const lastRow=sheet.getLastRow();
     let rowNumber=0;
     if(lastRow>1 && targetId) {

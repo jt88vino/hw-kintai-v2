@@ -143,7 +143,7 @@
   </div>
 
   <div id="confirmModal" class="modal"><div class="modal-box"><div class="modal-head info"><span style="font-size:22px">⏱</span><div><h4>打刻のご確認</h4><div style="font-size:11px;color:#64748b;font-weight:800">内容を今一度ご確認ください</div></div></div><div id="confirmDetails" class="confirm-box"></div><div class="modal-actions"><button id="cancelPunch" class="btn btn-gray">キャンセル</button><button id="executePunch" class="btn btn-indigo">はい、打刻する</button></div></div></div>
-  <div id="deleteModal" class="modal"><div class="modal-box"><div class="modal-head warn"><span style="font-size:22px">⚠️</span><div><h4>打刻取り消し確認</h4></div></div><div id="deleteDetails" class="confirm-box"></div><label for="deletePassword" style="font-size:11px">管理者パスワードを入力して削除を実行</label><input id="deletePassword" type="password" placeholder="パスワード" style="text-align:center"><div id="deletePasswordError" class="err-text hidden">パスワードが間違っています</div><div id="deleteProgress" role="status" aria-live="polite" style="font-size:12px;line-height:1.6;margin-top:10px"></div><div class="modal-actions"><button id="cancelDelete" class="btn btn-gray">やめる</button><button id="executeDelete" class="btn btn-rose">削除を実行する</button></div></div></div>
+  <div id="deleteModal" class="modal"><div class="modal-box"><div class="modal-head warn"><span style="font-size:22px">⚠️</span><div><h4>打刻取り消し確認</h4></div></div><div id="deleteDetails" class="confirm-box"></div><div id="deletePasswordBox"><label for="deletePassword" style="font-size:11px">管理者パスワードを入力して削除を実行</label><input id="deletePassword" type="password" placeholder="パスワード" style="text-align:center"></div><div id="deleteError" class="err-text hidden"></div><div id="deleteProgress" role="status" aria-live="polite" style="font-size:12px;line-height:1.6;margin-top:10px"></div><div class="modal-actions"><button id="cancelDelete" class="btn btn-gray">やめる</button><button id="executeDelete" class="btn btn-rose">削除を実行する</button></div></div></div>
 
   <noscript><div class="startup"><b>JavaScriptが無効です。</b><br>この勤怠管理画面を使うには、ブラウザのJavaScriptを有効にしてください。</div></noscript>
 
@@ -192,6 +192,7 @@
       isAdminSubmitting: false,
       confirmPunch: null,
       deleteTargetLog: null,
+      deleteRecent: false,
       isDeleteSubmitting: false,
       deleteNeedsCheck: false,
       lastSyncError: '',
@@ -338,7 +339,7 @@
       $('executePunch').addEventListener('click', executePunch);
       $('cancelDelete').addEventListener('click', closeDeleteModal);
       $('executeDelete').addEventListener('click', confirmDeleteLog);
-      $('deletePassword').addEventListener('input', ()=> $('deletePasswordError').classList.add('hidden'));
+      $('deletePassword').addEventListener('input', ()=> $('deleteError').classList.add('hidden'));
       $('showDebugBtn').addEventListener('click', toggleDebug);
       document.addEventListener('visibilitychange', ()=>{
         if(!document.hidden && !state.isSyncing) syncLogsFromGAS('visible');
@@ -688,7 +689,7 @@
           <div class="log-main"><div class="log-line"><span class="name">${esc(log.name)}</span><span class="tag ${logTag(log.type)}">${esc(log.type)}</span>${log.type==='出勤' && log.transport ? `<span class="transport">${log.transport.indexOf('バス')===0?'🚌 バス・電車':'🚲 自転車'}</span>`:''}</div>${log.memo ? `<p class="memo">Memo: ${esc(log.memo)}</p>`:''}</div>
           <div class="row" style="gap:4px"><span class="log-time">${esc(getHHMM(log.time))}</span><button class="delete-btn" data-delete-id="${esc(log.id)}" title="削除">🗑</button></div>
         </div>`).join('');
-      box.querySelectorAll('[data-delete-id]').forEach(btn=>btn.addEventListener('click', ()=>requestDeleteLog(btn.dataset.deleteId)));
+      box.querySelectorAll('[data-delete-id]').forEach(btn=>btn.addEventListener('click', ()=>requestDeleteLog(btn.dataset.deleteId,'recent')));
       box.querySelectorAll('.log-main').forEach((el,i)=>{
         if(!recent[i].category) return;
         const label=document.createElement('div'); label.className='memo'; label.textContent=recent[i].category; el.appendChild(label);
@@ -937,19 +938,20 @@
       }
     }
 
-    function requestDeleteLog(id){
+    function requestDeleteLog(id, source='history'){
       if(state.isDeleteSubmitting) return;
       const log=state.logs.concat(state.monthLogs||[]).find(l=>l.id===id); if(!log) return;
-      state.deleteTargetLog=log; state.deleteNeedsCheck=false;
+      state.deleteTargetLog=log; state.deleteNeedsCheck=false; state.deleteRecent=source==='recent';
+      $('deletePasswordBox').classList.toggle('hidden',state.deleteRecent);
       $('deleteDetails').innerHTML=`<div>メンバー: <b>${esc(log.name)}さん</b></div><div>区分: <b>${esc(log.type)}</b></div><div>時間: <b>${esc(formatWithDayOfWeek(log.time))}</b></div>`;
-      $('deletePassword').value=''; $('deletePassword').disabled=false;
-      $('deletePasswordError').classList.add('hidden'); $('deleteProgress').textContent='';
+      $('deletePassword').value=''; $('deletePassword').disabled=state.deleteRecent;
+      $('deleteError').classList.add('hidden'); $('deleteProgress').textContent='';
       $('executeDelete').disabled=false; $('executeDelete').textContent='削除を実行する'; $('cancelDelete').disabled=false;
       $('deleteModal').classList.add('show');
     }
     function closeDeleteModal(force=false){
       if(state.isDeleteSubmitting && force!==true) return;
-      state.deleteTargetLog=null; state.deleteNeedsCheck=false; $('deleteModal').classList.remove('show');
+      state.deleteTargetLog=null; state.deleteNeedsCheck=false; state.deleteRecent=false; $('deleteModal').classList.remove('show');
     }
     function finishDelete(target){
       state.mutationVersion++;
@@ -964,17 +966,17 @@
       if(!state.deleteTargetLog || state.isDeleteSubmitting || state.isAdminSubmitting) return;
       const target=state.deleteTargetLog, checking=state.deleteNeedsCheck;
       const password=$('deletePassword').value;
-      if(!checking && !password){
-        $('deletePasswordError').textContent='管理者パスワードを入力してください。';
-        $('deletePasswordError').classList.remove('hidden'); $('deletePassword').focus(); return;
+      if(!checking && !state.deleteRecent && !password){
+        $('deleteError').textContent='管理者パスワードを入力してください。';
+        $('deleteError').classList.remove('hidden'); $('deletePassword').focus(); return;
       }
       state.isDeleteSubmitting=true; state.isAdminSubmitting=true;
       $('deletePassword').value=''; $('deletePassword').disabled=true;
-      $('deletePasswordError').classList.add('hidden');
+      $('deleteError').classList.add('hidden');
       $('executeDelete').disabled=true; $('cancelDelete').disabled=true;
       $('deleteModal').setAttribute('aria-busy','true');
       $('executeDelete').textContent=checking?'確認中…':'取り消し中…';
-      $('deleteProgress').textContent=checking?'スプレッドシートの最新状態を確認しています。':'パスワード認証と打刻の取り消しを実行しています。';
+      $('deleteProgress').textContent=checking?'スプレッドシートの最新状態を確認しています。':'打刻の取り消しを実行しています。';
       const slowTimer=setTimeout(()=>{if(state.isDeleteSubmitting) $('deleteProgress').textContent='Google側の応答を待っています。結果を確認中です。ボタンを押し直す必要はありません。';},7000);
       try {
         if(checking){
@@ -982,11 +984,11 @@
           if(!result || result.ok!==true || result.scope!=='month' || result.month!==target.month || !Array.isArray(result.logs)) throw new Error('最新状態を取得できませんでした。再度確認してください。');
           if(result.logs.some(l=>String(l.id)===target.id)){
             state.deleteNeedsCheck=false;
-            $('deleteProgress').textContent='この打刻はまだシートに残っています。取り消すにはパスワードを入力して再実行してください。';
+            $('deleteProgress').textContent=state.deleteRecent?'この打刻はまだシートに残っています。取り消すには「削除を実行する」を押してください。':'この打刻はまだシートに残っています。取り消すにはパスワードを入力して再実行してください。';
             return;
           }
         } else {
-          const result=await adminRequest({action:'delete',id:target.id,adminPassword:password});
+          const result=await adminRequest(state.deleteRecent?{action:'deleteRecent',id:target.id}:{action:'delete',id:target.id,adminPassword:password});
           if(!result || result.ok!==true) throw new Error('取り消し結果を確認できませんでした。');
         }
         finishDelete(target);
@@ -995,14 +997,14 @@
         $('deleteProgress').textContent=state.deleteNeedsCheck
           ? '結果が未確認です。取り消し済みの場合もあります。「最新状態を確認」を押してください。'
           : '';
-        $('deletePasswordError').textContent=err.message || '取り消しに失敗しました。';
-        $('deletePasswordError').classList.remove('hidden');
+        $('deleteError').textContent=err.message || '取り消しに失敗しました。';
+        $('deleteError').classList.remove('hidden');
       } finally {
         clearTimeout(slowTimer); state.isDeleteSubmitting=false; state.isAdminSubmitting=false;
         $('deleteModal').setAttribute('aria-busy','false');
         $('executeDelete').disabled=false; $('cancelDelete').disabled=false;
         $('executeDelete').textContent=state.deleteNeedsCheck?'最新状態を確認':'削除を実行する';
-        $('deletePassword').disabled=state.deleteNeedsCheck;
+        $('deletePassword').disabled=state.deleteRecent || state.deleteNeedsCheck;
       }
     }
 
