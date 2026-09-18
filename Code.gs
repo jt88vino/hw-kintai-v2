@@ -64,7 +64,12 @@ function handleRequest_(e, isPost) {
       if (action === "adminLogin") result = loginAdmin_(params);
       else if (action === "add") { const addSS = SpreadsheetApp.openById(SPREADSHEET_ID); result = addLog_(getOrCreateMasterSheet_(addSS), params); }
       else {
-        result = validateAdmin_(params, action);
+        if(action==='delete' && params.adminPassword) {
+          const auth=loginAdmin_(params);
+          if(auth.ok) params.adminToken=auth.token;
+          else result=auth;
+        }
+        if(!result) result = validateAdmin_(params, action);
         if (!result) {
           const adminSS = SpreadsheetApp.openById(SPREADSHEET_ID);
           if (action === "addUser") result = addUser_(adminSS, params);
@@ -737,27 +742,23 @@ function deleteLog_(sheet, params) {
       };
     }
 
-    const data = sheet.getDataRange().getDisplayValues();
-    let isDeleted = false;
-
-    for (let i = data.length - 1; i >= 1; i--) {
-      const row = data[i];
-      const rowName = row[1] || "";
-      const rowTime = row[3] || "";
-      const rowId = row[5] ? String(row[5]) : "";
-      const matchedById = targetId && rowId === String(targetId);
-      const matchedByNameTime = !targetId && rowName === targetName && rowTime === targetTime;
-
-      if (matchedById || matchedByNameTime) {
-        sheet.deleteRow(i + 1);
-        invalidateAttendanceIndex_();
-        isDeleted = true;
-        break;
+    const lastRow=sheet.getLastRow();
+    let rowNumber=0;
+    if(lastRow>1 && targetId) {
+      const found=sheet.getRange(2,6,lastRow-1,1).createTextFinder(String(targetId)).matchEntireCell(true).matchCase(true).findNext();
+      if(found) rowNumber=found.getRow();
+    } else if(lastRow>1) {
+      const matches=sheet.getRange(2,4,lastRow-1,1).createTextFinder(String(targetTime)).matchEntireCell(true).findAll();
+      for(const found of matches.reverse()) {
+        const row=sheet.getRange(found.getRow(),2,1,3).getDisplayValues()[0];
+        if(row[0]===targetName && row[2]===targetTime){rowNumber=found.getRow();break;}
       }
     }
-
-    if (isDeleted) {
-      return { ok: true, action: "delete", message: "SUCCESS" };
+    if(rowNumber) {
+      sheet.deleteRow(rowNumber);
+      invalidateAttendanceIndex_();
+      SpreadsheetApp.flush();
+      return {ok:true,action:'delete',id:String(targetId),message:'SUCCESS'};
     }
 
     return {

@@ -143,7 +143,7 @@
   </div>
 
   <div id="confirmModal" class="modal"><div class="modal-box"><div class="modal-head info"><span style="font-size:22px">⏱</span><div><h4>打刻のご確認</h4><div style="font-size:11px;color:#64748b;font-weight:800">内容を今一度ご確認ください</div></div></div><div id="confirmDetails" class="confirm-box"></div><div class="modal-actions"><button id="cancelPunch" class="btn btn-gray">キャンセル</button><button id="executePunch" class="btn btn-indigo">はい、打刻する</button></div></div></div>
-  <div id="deleteModal" class="modal"><div class="modal-box"><div class="modal-head warn"><span style="font-size:22px">⚠️</span><div><h4>打刻取り消し確認</h4></div></div><div id="deleteDetails" class="confirm-box"></div><label for="deletePassword" style="font-size:11px">管理者パスワードを入力して削除を実行</label><input id="deletePassword" type="password" placeholder="パスワード" style="text-align:center"><div id="deletePasswordError" class="err-text hidden">パスワードが間違っています</div><div class="modal-actions"><button id="cancelDelete" class="btn btn-gray">やめる</button><button id="executeDelete" class="btn btn-rose">削除を実行する</button></div></div></div>
+  <div id="deleteModal" class="modal"><div class="modal-box"><div class="modal-head warn"><span style="font-size:22px">⚠️</span><div><h4>打刻取り消し確認</h4></div></div><div id="deleteDetails" class="confirm-box"></div><label for="deletePassword" style="font-size:11px">管理者パスワードを入力して削除を実行</label><input id="deletePassword" type="password" placeholder="パスワード" style="text-align:center"><div id="deletePasswordError" class="err-text hidden">パスワードが間違っています</div><div id="deleteProgress" role="status" aria-live="polite" style="font-size:12px;line-height:1.6;margin-top:10px"></div><div class="modal-actions"><button id="cancelDelete" class="btn btn-gray">やめる</button><button id="executeDelete" class="btn btn-rose">削除を実行する</button></div></div></div>
 
   <noscript><div class="startup"><b>JavaScriptが無効です。</b><br>この勤怠管理画面を使うには、ブラウザのJavaScriptを有効にしてください。</div></noscript>
 
@@ -192,6 +192,8 @@
       isAdminSubmitting: false,
       confirmPunch: null,
       deleteTargetLog: null,
+      isDeleteSubmitting: false,
+      deleteNeedsCheck: false,
       lastSyncError: '',
       mutationVersion: 0,
       lastSyncedAt: '',
@@ -586,7 +588,7 @@
       if(!state.gasUrl) { renderAll(); return; }
       setSyncing(true);
       const version=state.mutationVersion;
-      const url = buildGasUrl({ action:'read', scope:'recent', ...(reason==='manual'?{fresh:'1'}:{}), t:Date.now() });
+      const url = buildGasUrl({ action:'read', scope:'recent', ...(['manual','after-delete'].includes(reason)?{fresh:'1'}:{}), t:Date.now() });
 
       try{
         const data = await readGASDataOnce(url);
@@ -628,20 +630,29 @@
     async function adminRequest(params){
       if(!state.gasUrl) throw new Error('GAS URLが設定されていません。');
       if(params.action==='add' && useAttendanceAPI()) return requestAttendanceAPI(params,'POST');
-      const receipt = window.crypto.randomUUID();
-      // パスワード・認証トークンはURLやブラウザ保存領域へ入れない。
-      await timeoutPromise(fetch(state.gasUrl, {method:'POST', mode:'no-cors', credentials:'omit',
-        body:new URLSearchParams(Object.assign({},params,{receipt}))}),12000,'管理者操作');
-      for(let attempt=0;attempt<12;attempt++){
-        const result = await timeoutPromise(readGASViaJSONP(buildGasUrl({action:'adminResult',receipt,t:Date.now()})),8000,'処理結果の確認');
+      const receipt = window.crypto.randomUUID(), deadline=Date.now()+30000;
+      const controller=new AbortController(), postTimer=setTimeout(()=>controller.abort(),12000);
+      // Secrets stay in the POST body sent directly to Google. An uncertain POST is never repeated.
+      try {
+        await timeoutPromise(fetch(state.gasUrl, {method:'POST',mode:'no-cors',credentials:'omit',signal:controller.signal,
+          body:new URLSearchParams(Object.assign({},params,{receipt}))}),12000,'送信');
+      } catch(e) {
+        // A timed-out response can still mean a completed write. Look up this exact receipt.
+      } finally {clearTimeout(postTimer);}
+      while(Date.now()<deadline){
+        let result;
+        try {result=await readGASViaJSONP(buildGasUrl({action:'adminResult',receipt,t:Date.now()}),Math.min(7000,deadline-Date.now()));}
+        catch(e){if(Date.now()>=deadline) break;}
         if(result && !result.pending){
           if(!result.ok){const err=new Error(result.message || '操作に失敗しました。');err.code=result.error;err.actualMinutes=result.actualMinutes;throw err;}
           return result;
         }
-        await new Promise(resolve=>setTimeout(resolve,1000));
+        if(Date.now()<deadline) await wait(Math.min(700,deadline-Date.now()));
       }
-      throw new Error('結果を確認できませんでした。再同期して状態を確認してください。');
+      const err=new Error('処理結果を確認できませんでした。最新の状態を確認してください。');
+      err.code='result_unconfirmed'; throw err;
     }
+
     async function sendGASAdminAction(params){
       return adminRequest(Object.assign({},params,{adminToken:state.adminToken}));
     }
@@ -927,31 +938,73 @@
     }
 
     function requestDeleteLog(id){
-      const log = state.logs.concat(state.monthLogs||[]).find(l=>l.id === id); if(!log) return;
-      state.deleteTargetLog = log;
-      $('deleteDetails').innerHTML = `<div>メンバー: <b>${esc(log.name)}さん</b></div><div>区分: <b>${esc(log.type)}</b></div><div>時間: <b>${esc(formatWithDayOfWeek(log.time))}</b></div>`;
-      $('deletePassword').value = ''; $('deletePasswordError').classList.add('hidden');
+      if(state.isDeleteSubmitting) return;
+      const log=state.logs.concat(state.monthLogs||[]).find(l=>l.id===id); if(!log) return;
+      state.deleteTargetLog=log; state.deleteNeedsCheck=false;
+      $('deleteDetails').innerHTML=`<div>メンバー: <b>${esc(log.name)}さん</b></div><div>区分: <b>${esc(log.type)}</b></div><div>時間: <b>${esc(formatWithDayOfWeek(log.time))}</b></div>`;
+      $('deletePassword').value=''; $('deletePassword').disabled=false;
+      $('deletePasswordError').classList.add('hidden'); $('deleteProgress').textContent='';
+      $('executeDelete').disabled=false; $('executeDelete').textContent='削除を実行する'; $('cancelDelete').disabled=false;
       $('deleteModal').classList.add('show');
     }
-    function closeDeleteModal(){ state.deleteTargetLog=null; $('deleteModal').classList.remove('show'); }
-    async function confirmDeleteLog(){
-      if(!state.deleteTargetLog || state.isAdminSubmitting) return;
-      state.isAdminSubmitting=true;
-      const target=state.deleteTargetLog;
-      const password=$('deletePassword').value; $('deletePassword').value='';
-      try {
-        const auth=await adminRequest({action:'adminLogin',adminPassword:password});
-        await adminRequest({action:'delete',id:target.id,adminToken:auth.token});
-        state.mutationVersion++;
-        state.logs=state.logs.filter(l=>l.id!==target.id);
-        if(state.monthLogs) state.monthLogs=state.monthLogs.filter(l=>l.id!==target.id);
-        safeSet('attendance_recent_logs',state.logs); closeDeleteModal(); renderAll();
-        showStatus(`${target.name}さんの[${target.type}]を取り消しました。`,'success');
-        setTimeout(()=>syncLogsFromGAS('after-delete'),1600);
-      } catch(err) { showStatus(err.message,'error'); }
-      finally { state.isAdminSubmitting=false; }
+    function closeDeleteModal(force=false){
+      if(state.isDeleteSubmitting && force!==true) return;
+      state.deleteTargetLog=null; state.deleteNeedsCheck=false; $('deleteModal').classList.remove('show');
     }
-
+    function finishDelete(target){
+      state.mutationVersion++;
+      state.logs=state.logs.filter(l=>l.id!==target.id);
+      if(state.monthLogs) state.monthLogs=state.monthLogs.filter(l=>l.id!==target.id);
+      safeSet('attendance_recent_logs',state.logs); closeDeleteModal(true); renderAll();
+      showStatus(`${target.name}さんの[${target.type}]を取り消しました。`,'success');
+      // Refresh statuses after closing the dialog; do not make the user wait for this read.
+      setTimeout(()=>syncLogsFromGAS('after-delete'),0);
+    }
+    async function confirmDeleteLog(){
+      if(!state.deleteTargetLog || state.isDeleteSubmitting || state.isAdminSubmitting) return;
+      const target=state.deleteTargetLog, checking=state.deleteNeedsCheck;
+      const password=$('deletePassword').value;
+      if(!checking && !password){
+        $('deletePasswordError').textContent='管理者パスワードを入力してください。';
+        $('deletePasswordError').classList.remove('hidden'); $('deletePassword').focus(); return;
+      }
+      state.isDeleteSubmitting=true; state.isAdminSubmitting=true;
+      $('deletePassword').value=''; $('deletePassword').disabled=true;
+      $('deletePasswordError').classList.add('hidden');
+      $('executeDelete').disabled=true; $('cancelDelete').disabled=true;
+      $('deleteModal').setAttribute('aria-busy','true');
+      $('executeDelete').textContent=checking?'確認中…':'取り消し中…';
+      $('deleteProgress').textContent=checking?'スプレッドシートの最新状態を確認しています。':'パスワード認証と打刻の取り消しを実行しています。';
+      const slowTimer=setTimeout(()=>{if(state.isDeleteSubmitting) $('deleteProgress').textContent='Google側の応答を待っています。結果を確認中です。ボタンを押し直す必要はありません。';},7000);
+      try {
+        if(checking){
+          const result=await timeoutPromise(readGASDataOnce(buildGasUrl({action:'read',scope:'month',month:target.month,fresh:'1',t:Date.now()})),20000,'最新状態の確認');
+          if(!result || result.ok!==true || result.scope!=='month' || result.month!==target.month || !Array.isArray(result.logs)) throw new Error('最新状態を取得できませんでした。再度確認してください。');
+          if(result.logs.some(l=>String(l.id)===target.id)){
+            state.deleteNeedsCheck=false;
+            $('deleteProgress').textContent='この打刻はまだシートに残っています。取り消すにはパスワードを入力して再実行してください。';
+            return;
+          }
+        } else {
+          const result=await adminRequest({action:'delete',id:target.id,adminPassword:password});
+          if(!result || result.ok!==true) throw new Error('取り消し結果を確認できませんでした。');
+        }
+        finishDelete(target);
+      } catch(err) {
+        state.deleteNeedsCheck=checking || !err.code || ['result_unconfirmed','not_found','admin_action_failed'].includes(err.code);
+        $('deleteProgress').textContent=state.deleteNeedsCheck
+          ? '結果が未確認です。取り消し済みの場合もあります。「最新状態を確認」を押してください。'
+          : '';
+        $('deletePasswordError').textContent=err.message || '取り消しに失敗しました。';
+        $('deletePasswordError').classList.remove('hidden');
+      } finally {
+        clearTimeout(slowTimer); state.isDeleteSubmitting=false; state.isAdminSubmitting=false;
+        $('deleteModal').setAttribute('aria-busy','false');
+        $('executeDelete').disabled=false; $('cancelDelete').disabled=false;
+        $('executeDelete').textContent=state.deleteNeedsCheck?'最新状態を確認':'削除を実行する';
+        $('deletePassword').disabled=state.deleteNeedsCheck;
+      }
+    }
 
     function readAllocationInputs(){
       return ALLOCATION_ITEMS.map(item=>{const h=Number($(item.id+'_hours').value||0),m=Number($(item.id+'_minutes').value||0);return {id:item.id,minutes:Number.isInteger(h)&&h>=0&&h<=168&&Number.isInteger(m)&&m>=0&&m<=59?h*60+m:NaN,memo:$(item.id+'_memo').value.trim()};});
