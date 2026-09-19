@@ -854,7 +854,9 @@ function validateAllocations_(allocations) {
   return null;
 }
 function shiftMinutes_(logs,name,endTime) {
-  const parse=t=>new Date(String(t).replace(/\//g,"-").replace(" ","T")+"+09:00").getTime();
+  // Sheets display values drop the leading zero on the hour ("2026-09-18 9:22:45"),
+  // which is not valid ISO 8601. indexTime_ pads it before parsing.
+  const parse=t=>new Date(indexTime_(t).replace(" ","T")+"+09:00").getTime();
   const end=parse(endTime); let active=false, working=false, start=0, ms=0;
   logs.filter(l=>l.name===name && parse(l.time)<=end).sort((a,b)=>parse(a.time)-parse(b.time)).forEach(l=>{
     const t=parse(l.time);
