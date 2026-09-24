@@ -1308,7 +1308,7 @@
       if(changed) persistShiftOps();
       if(state.shiftOps.some(o=>!o.sent)) runShiftOps();
     }
-    function canEditShift(e){ return e.kind==='業務' || state.isAdminAuthenticated || (!!state.selectedUser && (e.name===state.selectedUser || e.by===state.selectedUser)); }
+    function canEditShift(e){ return true; } // anyone may change any entry; the 新着 list shows who did
     function findShiftEntry(id){ for(const m of Object.keys(state.shiftData)){ const e=shiftEntriesFor(m).find(x=>x.id===id); if(e) return e; } for(const op of state.shiftOps){ if(op.op==='add' && op.id===id) return Object.assign({},op.entry,{id:op.id,pending:true}); } return null; }
     function shiftChip(e, withTime){
       const cls = e.kind==='業務' ? 'task' : (e.kind==='休み'||e.kind==='有給'||e.kind==='振休') ? 'off' : 'person';

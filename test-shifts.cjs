@@ -37,7 +37,8 @@ const matsui=m.entries.find(e=>e.name==='松井');assert.equal(matsui.start,'202
 assert.equal(gas.readShifts_(ss,{month:'2026-11',fresh:'1'}).entries.length,1);assert.equal(gas.readShifts_(ss,{month:'2026-13'}).error,'invalid_month');
 assert.equal(gas.readShifts_(ss,{month:'2026-10'}).entries.length,4);add({kind:'出勤',name:'田中',start:'2026-10-09',by:'田中'});assert.equal(gas.readShifts_(ss,{month:'2026-10'}).entries.length,5); // a write clears the cache
 const hashimoto=m.entries.find(e=>e.name==='橋本');
-assert.equal(gas.deleteShift_(ss,{id:hashimoto.id,by:'松井'}).error,'forbidden');
+assert.equal(gas.deleteShift_(ss,{id:hashimoto.id,by:'松井'}).ok,true); // anyone may remove any entry
+sh.rows[hashimoto.row-1][11]='';sh.rows[hashimoto.row-1][12]='';sh.rows[hashimoto.row-1][13]=''; // undo for the checks below
 assert.equal(gas.deleteShift_(ss,{id:hashimoto.id,by:'橋本'}).ok,true);assert.equal(gas.deleteShift_(ss,{id:hashimoto.id,by:'橋本'}).duplicate,true);
 const token='a'.repeat(72);cache.set('admin:'+token,'valid');assert.equal(gas.deleteShift_(ss,{id:matsui.id,by:'',adminToken:token}).ok,true);
 assert.equal(gas.deleteShift_(ss,{id:'nope',by:'橋本'}).error,'not_found');
@@ -48,7 +49,7 @@ assert.equal(JSON.parse(gas.handleRequest_({parameter:{action:'shiftAdd',id,kind
 assert.equal(JSON.parse(gas.handleRequest_({parameter:{action:'shiftAdd',receipt,id,kind:'シフト',name:'鈴木',start:'2026-10-13',from:'09:00',to:'14:00',by:'鈴木'}},true).getContent()).ok,true);
 assert.equal(JSON.parse(gas.handleRequest_({parameter:{action:'adminResult',receipt}},false).getContent()).id,id);
 assert.equal(JSON.parse(gas.handleRequest_({parameter:{action:'shift',month:'2026-10'}},false).getContent()).entries.length,4);
-// A day event belongs to everyone: anyone may remove it; a member's shift still needs the member or the admin.
+// A day event may be removed by anyone as well.
 { const ev=gas.readShifts_(ss,{month:'2026-10',fresh:'1'}).entries.find(e=>e.kind==='業務'); assert.equal(gas.deleteShift_(ss,{id:ev.id,by:'松井'}).ok,true); }
 // ---- お知らせ: 管理者認証か NOTICE_TOKEN が要る。期間外・削除済みは配信されない ----
 assert.equal(gas.addNotice_(ss,{text:'こんにちは'}).error,'unauthorized');
@@ -99,5 +100,5 @@ assert.deepEqual(api.sortEntries(api.shiftEntriesFor('2026-09').filter(x=>x.star
  api.state.shiftData['2026-09'].entries.push(e('n2','休み','鈴木','2026-09-29'));api.reconcileShiftOps('2026-09');assert.equal(api.state.shiftOps.length,0);
  api.queueShiftOp({op:'add',id:'n3',entry:e('n3','休み','鈴木','2026-09-30'),by:'鈴木',sent:false});await api.runShiftOps();assert.equal(api.state.shiftOps[0].unconfirmed,true);
  sent=[];api.setSend(async p=>{sent.push(p);return {ok:true,id:p.id};});api.reconcileShiftOps('2026-09');await api.runShiftOps();assert.equal(sent.length,1);assert.equal(sent[0].id,'n3');assert.equal(api.state.shiftOps.length,0);
- console.log('PASS: notices need admin or token with date window and cache invalidation, シフト sheet creation, validation, duplicate id, display-format normalization, month filter and cache, own/admin delete with history, POST-only writes, month grid, holidays, chip labels, next/today shift, background add/delete, rejected and unconfirmed ops');
+ console.log('PASS: notices need admin or token with date window and cache invalidation, シフト sheet creation, validation, duplicate id, display-format normalization, month filter and cache, delete by anyone with history, POST-only writes, month grid, holidays, chip labels, next/today shift, background add/delete, rejected and unconfirmed ops');
 })().catch(e=>{console.error(e);process.exitCode=1});
