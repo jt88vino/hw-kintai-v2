@@ -77,8 +77,8 @@ assert.deepEqual(api.personColor('橋本'),api.personColor('橋本'));
 const e=(id,kind,name,start,from,to,extra)=>Object.assign({id,kind,name,start,end:start,from:from||'',to:to||'',label:'',memo:'',by:name,at:''},extra||{});
 api.state.shiftData['2026-09']={entries:[e('a','シフト','橋本','2026-09-24','09:30','15:00'),e('b','シフト','橋本','2026-09-30','10:00','15:00'),e('c','業務','','2026-09-28',null,null,{end:'2026-09-30',label:'小瓶搬入',by:'長谷川'})],changes:[]};
 api.state.shiftData['2026-10']={entries:[e('d','シフト','橋本','2026-10-02','09:00','14:00')],changes:[]};
-assert.equal(JSON.stringify(api.upcomingEvents(7).map(x=>x.id)),'["c"]');api.renderEvents();assert.match(el('eventList').innerHTML,/小瓶搬入/);assert.match(el('eventList').innerHTML,/9\/28\(月\)〜9\/30\(水\)/);
-assert.equal(api.todayShiftFor('橋本').id,'a');api.state.users=['橋本'];api.renderTodayShifts();assert.match(el('todayShiftList').innerHTML,/09:30-15:00/);assert.match(el('todayShiftList').innerHTML,/未出勤/);assert.equal(api.todayShiftFor('松井'),null);
+assert.equal(JSON.stringify(api.upcomingEvents(7).map(x=>x.id)),'["c"]');api.renderEvents();assert.match(el('eventList').innerHTML,/小瓶搬入/);assert.match(el('eventSummary').textContent,/次: 9\/28\(月\) 小瓶搬入（1件）/);assert.match(el('eventList').innerHTML,/9\/28\(月\)〜9\/30\(水\)/);
+assert.equal(api.todayShiftFor('橋本').id,'a');api.state.users=['橋本'];api.renderTodayShifts();assert.match(el('todayShiftList').innerHTML,/09:30-15:00/);assert.match(el('todayShiftSummary').textContent,/1人（出勤中 0・未出勤 1・退勤済 0）/);assert.match(el('todayShiftList').innerHTML,/未出勤/);assert.equal(api.todayShiftFor('松井'),null);
 assert.equal(api.nextShiftFor('橋本','2026-09-25').id,'b');assert.equal(api.nextShiftFor('橋本','2026-10-01').id,'d');
 assert.deepEqual(api.sortEntries(api.shiftEntriesFor('2026-09').filter(x=>x.start<='2026-09-30'&&x.end>='2026-09-30')).map(x=>x.id),['c','b']);
 (async()=>{

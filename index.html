@@ -39,6 +39,7 @@
     .shift-date{font-size:10px;font-weight:900;color:#475569;text-align:right;padding-right:2px}.shift-day.sat .shift-date{color:#2563eb}.shift-day.sun .shift-date,.shift-day.holiday .shift-date{color:#e11d48}
     .shift-chip{font-size:9px;font-weight:900;line-height:1.25;padding:2px 3px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#e2e8f0;color:#1f2937}
     .shift-chip.task{background:#fef3c7;color:#78350f;border-left:3px solid #f59e0b;border-radius:3px}.shift-chip.holiday{background:#fecaca;color:#991b1b}.shift-chip.off{background:#e5e7eb;color:#4b5563}
+    .card-toggle{width:100%;background:none;border:0;padding:0;display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;cursor:pointer;color:inherit;font:inherit}.card-toggle .chev{color:#94a3b8;font-size:12px;transition:transform .15s;flex:none}.card-toggle[aria-expanded="true"] .chev{transform:rotate(90deg)}.toggle-summary{font-size:12px;color:#64748b;font-weight:800;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .shift-section{font-size:11px;font-weight:900;color:#64748b;margin:10px 0 4px}.shift-section:first-child{margin-top:0}.tag.event{background:#fef3c7;color:#78350f}
     .shift-chip.mine{outline:2px solid #4f46e5;outline-offset:-2px}.shift-chip.pending{opacity:.55;border:1px dashed #64748b}
     .shift-kinds{grid-template-columns:repeat(3,1fr)}.shift-form label{display:block;font-size:11px;font-weight:900;color:#64748b;margin-bottom:4px}
@@ -80,7 +81,7 @@
           </div>
         </div>
         <div id="noticeCard" class="card notice-card hidden"><h3 class="card-title">📢 お知らせ</h3><div id="noticeList"></div></div>
-        <div id="eventCard" class="card notice-card hidden"><h3 class="card-title">📌 予定・連絡（今日から1週間）</h3><div id="eventList"></div><p class="member-help" style="margin:8px 0 0">登録・変更はシフトタブの日付から。</p></div>
+        <div id="eventCard" class="card notice-card hidden"><button id="eventToggle" class="card-toggle" type="button" aria-expanded="false" aria-controls="eventBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📌 予定・連絡（今日から1週間）</h3><div id="eventSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><div id="eventBody" class="hidden" style="margin-top:8px"><div id="eventList"></div><p class="member-help" style="margin:8px 0 0">登録・変更はシフトタブの日付から。</p></div></div>
         <div id="statusMessage" class="status"></div>
         <div id="pendingPunchCard" class="card hidden" role="status" aria-live="polite"><p id="pendingPunchText" style="margin:0 0 10px"></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="resumePunch" class="mini-btn" type="button">保存確認・再送</button><button id="discardPunch" class="mini-btn" type="button">取り消す</button></div></div>
         <div class="card">
@@ -119,7 +120,7 @@
           <p id="punchState" class="member-help" style="margin:10px 0 0" role="status" aria-live="polite"></p>
           <p id="punchShiftLine" class="member-help hidden" style="margin:6px 0 0"></p>
         </div>
-        <div id="todayShiftCard" class="card hidden"><h3 class="card-title">📅 今日の出勤予定</h3><div id="todayShiftList" class="log-list" style="max-height:none"></div></div>
+        <div id="todayShiftCard" class="card hidden"><button id="todayShiftToggle" class="card-toggle" type="button" aria-expanded="false" aria-controls="todayShiftBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📅 今日の出勤予定</h3><div id="todayShiftSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><div id="todayShiftBody" class="hidden" style="margin-top:8px"><div id="todayShiftList" class="log-list" style="max-height:none"></div></div></div>
         <div id="recentCard" class="card relative">
           <div class="sync-cover"><div class="spinner"></div></div>
           <div class="row" style="margin-bottom:12px"><h3 class="card-title" style="margin:0">⏱ 直近の打刻ログ</h3><button id="refreshBtn" class="mini-btn">更新 ⟳</button></div>
@@ -140,7 +141,7 @@
       <section id="dashboardTab" class="tab stack fade hidden">
         <div id="dashboardStatus" class="status"></div>
         <div id="noticeCardDash" class="card notice-card hidden"><h3 class="card-title">📢 お知らせ</h3><div id="noticeListDash"></div></div>
-        <div id="eventCardDash" class="card notice-card hidden"><h3 class="card-title">📌 予定・連絡（今日から1週間）</h3><div id="eventListDash"></div></div>
+        <div id="eventCardDash" class="card notice-card hidden"><button id="eventToggleDash" class="card-toggle" type="button" aria-expanded="false" aria-controls="eventBodyDash"><div style="min-width:0"><h3 class="card-title" style="margin:0">📌 予定・連絡（今日から1週間）</h3><div id="eventSummaryDash" class="toggle-summary"></div></div><span class="chev">▶</span></button><div id="eventBodyDash" class="hidden" style="margin-top:8px"><div id="eventListDash"></div></div></div>
         <div class="card row"><span style="font-size:13px;font-weight:900;color:#475569">表示対象月を選択:</span><select id="selectedMonth" class="month-select"></select></div>
         <div id="membersCard" class="card relative"><div class="sync-cover"><div class="spinner"></div></div><h3 class="card-title">ステータス</h3><div id="memberStatus" class="member-status"></div></div>
         <div id="statsCard" class="card relative"><div class="sync-cover"><div class="spinner"></div></div><div class="row" style="margin-bottom:12px"><h3 class="card-title" style="margin:0">📅 月 勤務＆交通費集計</h3><span style="font-size:10px;color:#64748b;font-weight:900;background:#f1f5f9;border-radius:9px;padding:6px 8px">目標 80H想定</span></div><div id="monthlyStats" class="stats-list"></div></div>
@@ -255,6 +256,7 @@
       shiftEditing: null,
       shiftKind: 'シフト',
       notices: sanitizeNotices(safeGet('attendance_notices', [])),
+      collapsed: Object.assign({events:true, todayShift:true}, safeObject(safeGet('attendance_collapsed', {}))),
       deleteTargetLog: null,
       deleteRecent: false,
       isDeleteSubmitting: false,
@@ -426,6 +428,7 @@
       $('shiftCancel').addEventListener('click', closeShiftModal);
       $('shiftSave').addEventListener('click', saveShiftEntry);
       $('noticePost').addEventListener('click', postNotice);
+      [['eventToggle','events'],['eventToggleDash','events'],['todayShiftToggle','todayShift']].forEach(([id,key])=>{ const b=$(id); if(b) b.addEventListener('click', ()=>{ state.collapsed[key]=!state.collapsed[key]; safeSet('attendance_collapsed', state.collapsed); renderAll(); }); });
       $('cancelDelete').addEventListener('click', closeDeleteModal);
       $('executeDelete').addEventListener('click', confirmDeleteLog);
       $('deletePassword').addEventListener('input', ()=> $('deleteError').classList.add('hidden'));
@@ -1017,6 +1020,12 @@
       $('confirmModal').classList.add('show');
       if(category && type==='退勤') { $('confirmDetails').querySelectorAll('[data-allocation-input]').forEach(el=>el.addEventListener('input',updateAllocationTotal)); updateAllocationTotal(); }
     }
+    function applyCollapse(toggleId, bodyId, summaryId, open, summary){
+      const btn=$(toggleId), body=$(bodyId), sum=$(summaryId);
+      if(btn && btn.setAttribute) btn.setAttribute('aria-expanded', open?'true':'false');
+      if(body) body.classList.toggle('hidden', !open);
+      if(sum) sum.textContent=summary;
+    }
     // Day events (deliveries, exams, bottling days...) for the coming week, shown where everyone looks first.
     function upcomingEvents(days){
       const start=todayYmd(); const endD=new Date(start.replace(/-/g,'/')); endD.setDate(endD.getDate()+days); const end=ymd(endD);
@@ -1027,7 +1036,9 @@
     function renderEvents(){
       const items=upcomingEvents(7), today=todayYmd();
       const html=items.map(e=>`<div class="notice-item"><span class="tag event">${e.start<=today&&e.end>=today?'今日':esc(fmtDay(e.start))}${e.end!==e.start?`〜${esc(fmtDay(e.end))}`:''}</span> ${esc(e.label)}${e.memo?`<div class="notice-meta">${esc(e.memo)}</div>`:''}</div>`).join('');
-      [['eventCard','eventList'],['eventCardDash','eventListDash']].forEach(([c,l])=>{ const card=$(c), list=$(l); if(!card||!list) return; card.classList.toggle('hidden',!items.length); list.innerHTML=html; });
+      const todays=items.filter(e=>e.start<=today&&e.end>=today).map(e=>e.label), next=items.find(e=>e.start>today);
+      const summary = !items.length ? '' : (todays.length ? `今日: ${todays.join('、')}` : (next ? `次: ${fmtDay(next.start)} ${next.label}` : '')) + `（${items.length}件）`;
+      [['eventCard','eventList','eventToggle','eventBody','eventSummary'],['eventCardDash','eventListDash','eventToggleDash','eventBodyDash','eventSummaryDash']].forEach(([c,l,t,b,sm])=>{ const card=$(c), list=$(l); if(!card||!list) return; card.classList.toggle('hidden',!items.length); list.innerHTML=html; applyCollapse(t,b,sm,!state.collapsed.events,summary); });
     }
     // Today's members from the shift sheet, with where each one is right now.
     function renderTodayShifts(){
@@ -1037,6 +1048,9 @@
       const events=items.filter(e=>e.kind==='業務'), people=items.filter(e=>e.kind==='シフト'||e.kind==='出勤'), offs=items.filter(e=>e.kind==='休み'||e.kind==='有給'||e.kind==='振休');
       const personRow=e=>{ const [bg,fg]=personColor(e.name); const st=getUserCurrentStatus(e.name); const timed=e.kind==='シフト'||e.kind==='出勤';
         return `<div class="log-item"><div class="log-main"><div class="log-line"><span class="tag" style="background:${bg};color:${fg}">${esc(e.from?`${e.from}-${e.to}`:e.kind)}</span><span class="name">${esc(e.name)}</span>${timed?'':`<span class="tag off">${esc(e.kind)}</span>`}</div></div>${timed?`<span class="status-pill ${st.cls}">${esc(st.status)}</span>`:''}</div>`; };
+      const counts={working:0,rest:0,left:0,none:0}; people.forEach(e=>{ const c=getUserCurrentStatus(e.name).cls; counts[c]=(counts[c]||0)+1; });
+      const summary = `${people.length}人（出勤中 ${counts.working+counts.rest}・未出勤 ${counts.none}・退勤済 ${counts.left}）${events.length?` ・ 📌 ${events.length}件`:''}${offs.length?` ・ 休み ${offs.length}人`:''}`;
+      applyCollapse('todayShiftToggle','todayShiftBody','todayShiftSummary',!state.collapsed.todayShift,summary);
       list.innerHTML=(events.length?`<p class="shift-section">📌 今日の予定・連絡</p>${events.map(e=>`<div class="log-item"><div class="log-main"><div class="log-line"><span class="tag event">終日</span><span class="name">${esc(e.label)}</span></div></div></div>`).join('')}`:'')
         + (people.length?`<p class="shift-section">👥 出勤する人（${people.length}人）</p>${people.map(personRow).join('')}`:'')
         + (offs.length?`<p class="shift-section">🏖 休み</p>${offs.map(personRow).join('')}`:'');
