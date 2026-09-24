@@ -143,8 +143,6 @@
       </section>
       <section id="dashboardTab" class="tab stack fade hidden">
         <div id="dashboardStatus" class="status"></div>
-        <div id="noticeCardDash" class="card notice-card hidden"><h3 class="card-title">📢 お知らせ</h3><div id="noticeListDash"></div></div>
-        <div id="eventCardDash" class="card notice-card hidden"><button id="eventToggleDash" class="card-toggle" type="button" aria-expanded="false" aria-controls="eventBodyDash"><div style="min-width:0"><h3 class="card-title" style="margin:0">📌 予定・連絡（今日から1週間）</h3><div id="eventSummaryDash" class="toggle-summary"></div></div><span class="chev">▶</span></button><div id="eventBodyDash" class="hidden" style="margin-top:8px"><div id="eventListDash"></div></div></div>
         <div class="card row"><span style="font-size:13px;font-weight:900;color:#475569">表示対象月を選択:</span><select id="selectedMonth" class="month-select"></select></div>
         <div id="membersCard" class="card relative"><div class="sync-cover"><div class="spinner"></div></div><h3 class="card-title">ステータス</h3><div id="memberStatus" class="member-status"></div></div>
         <div id="statsCard" class="card relative"><div class="sync-cover"><div class="spinner"></div></div><div class="row" style="margin-bottom:12px"><h3 class="card-title" style="margin:0">📅 月 勤務＆交通費集計</h3><span style="font-size:10px;color:#64748b;font-weight:900;background:#f1f5f9;border-radius:9px;padding:6px 8px">目標 80H想定</span></div><div id="monthlyStats" class="stats-list"></div></div>
@@ -438,7 +436,7 @@
       $('headerRefresh').addEventListener('click', refreshAll);
       $('confirmDialogOk').addEventListener('click', ()=>settleConfirm(true));
       $('confirmDialogCancel').addEventListener('click', ()=>settleConfirm(false));
-      [['eventToggle','events'],['eventToggleDash','events'],['todayShiftToggle','todayShift']].forEach(([id,key])=>{ const b=$(id); if(b) b.addEventListener('click', ()=>{ state.collapsed[key]=!state.collapsed[key]; safeSet('attendance_collapsed', state.collapsed); renderAll(); }); });
+      [['eventToggle','events'],['todayShiftToggle','todayShift']].forEach(([id,key])=>{ const b=$(id); if(b) b.addEventListener('click', ()=>{ state.collapsed[key]=!state.collapsed[key]; safeSet('attendance_collapsed', state.collapsed); renderAll(); }); });
       $('cancelDelete').addEventListener('click', closeDeleteModal);
       $('executeDelete').addEventListener('click', confirmDeleteLog);
       $('deletePassword').addEventListener('input', ()=> $('deleteError').classList.add('hidden'));
@@ -1071,7 +1069,7 @@
       const html=items.map(e=>`<div class="notice-item"><span class="tag event">${e.start<=today&&e.end>=today?'今日':esc(fmtDay(e.start))}${e.end!==e.start?`〜${esc(fmtDay(e.end))}`:''}</span> ${esc(e.label)}${e.memo?`<div class="notice-meta">${esc(e.memo)}</div>`:''}</div>`).join('');
       const todays=items.filter(e=>e.start<=today&&e.end>=today).map(e=>e.label), next=items.find(e=>e.start>today);
       const summary = !items.length ? '' : (todays.length ? `今日: ${todays.join('、')}` : (next ? `次: ${fmtDay(next.start)} ${next.label}` : '')) + `（${items.length}件）`;
-      [['eventCard','eventList','eventToggle','eventBody','eventSummary'],['eventCardDash','eventListDash','eventToggleDash','eventBodyDash','eventSummaryDash']].forEach(([c,l,t,b,sm])=>{ const card=$(c), list=$(l); if(!card||!list) return; card.classList.toggle('hidden',!items.length); list.innerHTML=html; applyCollapse(t,b,sm,!state.collapsed.events,summary); });
+      [['eventCard','eventList','eventToggle','eventBody','eventSummary']].forEach(([c,l,t,b,sm])=>{ const card=$(c), list=$(l); if(!card||!list) return; card.classList.toggle('hidden',!items.length); list.innerHTML=html; applyCollapse(t,b,sm,!state.collapsed.events,summary); });
     }
     // Today's members from the shift sheet, with where each one is right now.
     function renderTodayShifts(){
@@ -1179,7 +1177,7 @@
     function sanitizeNotices(arr){ return (Array.isArray(arr)?arr:[]).filter(n=>n && n.id && n.text).map(n=>({id:String(n.id),text:String(n.text),from:String(n.from||''),until:String(n.until||''),by:String(n.by||''),at:String(n.at||'')})); }
     function renderNotices(){
       const html = state.notices.map(n=>`<div class="notice-item">${esc(n.text)}<div class="notice-meta">${esc(n.by||'管理者')} ・ ${esc(shortWhen(n.at))}${n.until?` ・ ${esc(fmtDay(n.until))}まで`:''}</div></div>`).join('');
-      [['noticeCard','noticeList'],['noticeCardDash','noticeListDash']].forEach(([card,list])=>{ const c=$(card), l=$(list); if(!c||!l) return; c.classList.toggle('hidden',!state.notices.length); l.innerHTML=html; });
+      [['noticeCard','noticeList']].forEach(([card,list])=>{ const c=$(card), l=$(list); if(!c||!l) return; c.classList.toggle('hidden',!state.notices.length); l.innerHTML=html; });
       const admin=$('noticeAdminList');
       if(admin){
         admin.innerHTML = state.notices.length ? state.notices.map(n=>`<div class="member-row"><div style="min-width:0"><div style="font-size:12px;white-space:pre-wrap;word-break:break-word">${esc(n.text)}</div><small>${esc(shortWhen(n.at))}${n.until?` ・ ${esc(fmtDay(n.until))}まで`:''}</small></div><button class="mini-btn" type="button" data-notice-delete="${esc(n.id)}">削除</button></div>`).join('') : '<div class="empty">掲載中のお知らせはありません。</div>';
