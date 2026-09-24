@@ -38,7 +38,8 @@
     .shift-day.other{opacity:.45}.shift-day.today{box-shadow:inset 0 0 0 2px var(--indigo)}.shift-day.selected{background:#eef2ff}
     .shift-date{font-size:10px;font-weight:900;color:#475569;text-align:right;padding-right:2px}.shift-day.sat .shift-date{color:#2563eb}.shift-day.sun .shift-date,.shift-day.holiday .shift-date{color:#e11d48}
     .shift-chip{font-size:9px;font-weight:900;line-height:1.25;padding:2px 3px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#e2e8f0;color:#1f2937}
-    .shift-chip.task{background:#5eead4;color:#0f3d3a}.shift-chip.holiday{background:#fecaca;color:#991b1b}.shift-chip.off{background:#e5e7eb;color:#4b5563}
+    .shift-chip.task{background:#fef3c7;color:#78350f;border-left:3px solid #f59e0b;border-radius:3px}.shift-chip.holiday{background:#fecaca;color:#991b1b}.shift-chip.off{background:#e5e7eb;color:#4b5563}
+    .shift-section{font-size:11px;font-weight:900;color:#64748b;margin:10px 0 4px}.shift-section:first-child{margin-top:0}.tag.event{background:#fef3c7;color:#78350f}
     .shift-chip.mine{outline:2px solid #4f46e5;outline-offset:-2px}.shift-chip.pending{opacity:.55;border:1px dashed #64748b}
     .shift-kinds{grid-template-columns:repeat(3,1fr)}.shift-form label{display:block;font-size:11px;font-weight:900;color:#64748b;margin-bottom:4px}
     .shift-form input,.shift-form select{box-sizing:border-box;width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px}
@@ -79,6 +80,7 @@
           </div>
         </div>
         <div id="noticeCard" class="card notice-card hidden"><h3 class="card-title">📢 お知らせ</h3><div id="noticeList"></div></div>
+        <div id="eventCard" class="card notice-card hidden"><h3 class="card-title">📌 予定・連絡（今日から1週間）</h3><div id="eventList"></div><p class="member-help" style="margin:8px 0 0">登録・変更はシフトタブの日付から。</p></div>
         <div id="statusMessage" class="status"></div>
         <div id="pendingPunchCard" class="card hidden" role="status" aria-live="polite"><p id="pendingPunchText" style="margin:0 0 10px"></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="resumePunch" class="mini-btn" type="button">保存確認・再送</button><button id="discardPunch" class="mini-btn" type="button">取り消す</button></div></div>
         <div class="card">
@@ -138,6 +140,7 @@
       <section id="dashboardTab" class="tab stack fade hidden">
         <div id="dashboardStatus" class="status"></div>
         <div id="noticeCardDash" class="card notice-card hidden"><h3 class="card-title">📢 お知らせ</h3><div id="noticeListDash"></div></div>
+        <div id="eventCardDash" class="card notice-card hidden"><h3 class="card-title">📌 予定・連絡（今日から1週間）</h3><div id="eventListDash"></div></div>
         <div class="card row"><span style="font-size:13px;font-weight:900;color:#475569">表示対象月を選択:</span><select id="selectedMonth" class="month-select"></select></div>
         <div id="membersCard" class="card relative"><div class="sync-cover"><div class="spinner"></div></div><h3 class="card-title">ステータス</h3><div id="memberStatus" class="member-status"></div></div>
         <div id="statsCard" class="card relative"><div class="sync-cover"><div class="spinner"></div></div><div class="row" style="margin-bottom:12px"><h3 class="card-title" style="margin:0">📅 月 勤務＆交通費集計</h3><span style="font-size:10px;color:#64748b;font-weight:900;background:#f1f5f9;border-radius:9px;padding:6px 8px">目標 80H想定</span></div><div id="monthlyStats" class="stats-list"></div></div>
@@ -187,7 +190,7 @@
       <div id="shiftNameRow"><label for="shiftName">名前</label><select id="shiftName"></select></div>
       <div class="allocation-time"><label style="flex:1">開始日<input id="shiftStart" type="date"></label><label id="shiftEndWrap" style="flex:1">終了日<input id="shiftEnd" type="date"></label></div>
       <div id="shiftTimeRow"><label>時間</label><div id="shiftPatterns" class="choice-grid shift-kinds"></div><div class="allocation-time" style="margin-top:6px"><label style="flex:1">開始<input id="shiftFrom" type="time"></label><label style="flex:1">終了<input id="shiftTo" type="time"></label></div></div>
-      <div id="shiftLabelRow"><label for="shiftLabel">内容</label><input id="shiftLabel" type="text" maxlength="60" placeholder="例：E・F瓶詰め"></div>
+      <div id="shiftLabelRow"><label for="shiftLabel">内容</label><input id="shiftLabel" type="text" maxlength="60" placeholder="例：E・F瓶詰め、バイブル到着、二次試験本番"></div>
       <div><label for="shiftMemo">メモ（任意）</label><input id="shiftMemo" type="text" maxlength="200"></div>
       <div id="shiftModalError" class="err-text hidden"></div>
     </div>
@@ -389,6 +392,7 @@
         syncLogsFromGAS('startup');
         drainPunchQueue();
         loadShiftMonth(getCurrentMonth(), true);
+        { const ahead=new Date(); ahead.setDate(ahead.getDate()+7); const m=ymd(ahead).slice(0,7); if(m!==getCurrentMonth()) loadShiftMonth(m, true); }
         runShiftOps();
         // 別端末で名簿が変わった場合も、開きっぱなしの画面へ自動反映する。
         setInterval(()=>{
@@ -756,7 +760,7 @@
       return adminRequest(Object.assign({},params,{adminToken:state.adminToken}));
     }
 
-    function renderAll(){ renderNotices(); renderPunch(); if(state.activeTab==='dashboard') renderDashboard(); renderSettings(); }
+    function renderAll(){ renderNotices(); renderEvents(); renderPunch(); if(state.activeTab==='dashboard') renderDashboard(); renderSettings(); }
     function renderPunch(){
       renderPendingPunch();
       const select = $('selectedUser');
@@ -786,6 +790,7 @@
       }
       renderTransportChoice();
       renderTodayShifts();
+      renderEvents();
       renderRecentLogs();
     }
     function renderTransportChoice(){
@@ -876,6 +881,7 @@
       return stats;
     }
     function renderDashboard(){
+      renderEvents();
       const months = Array.from(new Set(state.availableMonths.concat(state.logs.map(l=>l.month).filter(Boolean),getCurrentMonth()))).sort().reverse();
       if(!months.includes(state.selectedMonth)) months.unshift(state.selectedMonth);
       $('selectedMonth').innerHTML = months.map(m=>`<option value="${esc(m)}">${esc(m.replace('-','年'))}月</option>`).join('');
@@ -1011,16 +1017,29 @@
       $('confirmModal').classList.add('show');
       if(category && type==='退勤') { $('confirmDetails').querySelectorAll('[data-allocation-input]').forEach(el=>el.addEventListener('input',updateAllocationTotal)); updateAllocationTotal(); }
     }
+    // Day events (deliveries, exams, bottling days...) for the coming week, shown where everyone looks first.
+    function upcomingEvents(days){
+      const start=todayYmd(); const endD=new Date(start.replace(/-/g,'/')); endD.setDate(endD.getDate()+days); const end=ymd(endD);
+      const seen=new Set(), out=[];
+      [start.slice(0,7), end.slice(0,7)].forEach(m=>shiftEntriesFor(m).forEach(e=>{ if(e.kind==='業務' && !seen.has(e.id) && e.start<=end && e.end>=start){ seen.add(e.id); out.push(e); } }));
+      return out.sort((a,b)=>a.start.localeCompare(b.start)||a.label.localeCompare(b.label));
+    }
+    function renderEvents(){
+      const items=upcomingEvents(7), today=todayYmd();
+      const html=items.map(e=>`<div class="notice-item"><span class="tag event">${e.start<=today&&e.end>=today?'今日':esc(fmtDay(e.start))}${e.end!==e.start?`〜${esc(fmtDay(e.end))}`:''}</span> ${esc(e.label)}${e.memo?`<div class="notice-meta">${esc(e.memo)}</div>`:''}</div>`).join('');
+      [['eventCard','eventList'],['eventCardDash','eventListDash']].forEach(([c,l])=>{ const card=$(c), list=$(l); if(!card||!list) return; card.classList.toggle('hidden',!items.length); list.innerHTML=html; });
+    }
     // Today's members from the shift sheet, with where each one is right now.
     function renderTodayShifts(){
       const card=$('todayShiftCard'), list=$('todayShiftList'); if(!card||!list) return;
       const day=todayYmd(); const items=sortEntries(entriesOn(day.slice(0,7),day));
       card.classList.toggle('hidden',!items.length);
-      list.innerHTML=items.map(e=>{
-        if(e.kind==='業務') return `<div class="log-item"><div class="log-main"><div class="log-line"><span class="tag" style="background:#ccfbf1;color:#115e59">終日</span><span class="name">${esc(e.label)}</span></div></div></div>`;
-        const [bg,fg]=personColor(e.name); const st=getUserCurrentStatus(e.name); const timed=e.kind==='シフト'||e.kind==='出勤';
-        return `<div class="log-item"><div class="log-main"><div class="log-line"><span class="tag" style="background:${bg};color:${fg}">${esc(e.from?`${e.from}-${e.to}`:e.kind)}</span><span class="name">${esc(e.name)}</span>${timed?'':`<span class="tag off">${esc(e.kind)}</span>`}</div></div>${timed?`<span class="status-pill ${st.cls}">${esc(st.status)}</span>`:''}</div>`;
-      }).join('');
+      const events=items.filter(e=>e.kind==='業務'), people=items.filter(e=>e.kind==='シフト'||e.kind==='出勤'), offs=items.filter(e=>e.kind==='休み'||e.kind==='有給'||e.kind==='振休');
+      const personRow=e=>{ const [bg,fg]=personColor(e.name); const st=getUserCurrentStatus(e.name); const timed=e.kind==='シフト'||e.kind==='出勤';
+        return `<div class="log-item"><div class="log-main"><div class="log-line"><span class="tag" style="background:${bg};color:${fg}">${esc(e.from?`${e.from}-${e.to}`:e.kind)}</span><span class="name">${esc(e.name)}</span>${timed?'':`<span class="tag off">${esc(e.kind)}</span>`}</div></div>${timed?`<span class="status-pill ${st.cls}">${esc(st.status)}</span>`:''}</div>`; };
+      list.innerHTML=(events.length?`<p class="shift-section">📌 今日の予定・連絡</p>${events.map(e=>`<div class="log-item"><div class="log-main"><div class="log-line"><span class="tag event">終日</span><span class="name">${esc(e.label)}</span></div></div></div>`).join('')}`:'')
+        + (people.length?`<p class="shift-section">👥 出勤する人（${people.length}人）</p>${people.map(personRow).join('')}`:'')
+        + (offs.length?`<p class="shift-section">🏖 休み</p>${offs.map(personRow).join('')}`:'');
     }
     function renderPendingPunch(){
       // The card appears only when a punch needs the user: unconfirmed after a send, or rejected.
@@ -1138,6 +1157,7 @@
     }
     // ===== シフト（予定表）: TimeTree の共有カレンダーの置き換え =====
     const SHIFT_KINDS = ['シフト','業務','出勤','休み','有給','振休'];
+    const SHIFT_KIND_LABELS = {'シフト':'シフト','業務':'予定(終日)','出勤':'出勤(時間なし)','休み':'休み','有給':'有給','振休':'振休'};
     const SHIFT_PATTERNS = [['09:00','14:00'],['09:30','15:00'],['10:00','15:00']];
     // 祝日は年ごとに追記する（内閣府の発表に合わせる）
     const JP_HOLIDAYS = {'2026-01-01':'元日','2026-01-12':'成人の日','2026-02-11':'建国記念の日','2026-02-23':'天皇誕生日','2026-03-20':'春分の日','2026-04-29':'昭和の日','2026-05-03':'憲法記念日','2026-05-04':'みどりの日','2026-05-05':'こどもの日','2026-05-06':'振替休日','2026-07-20':'海の日','2026-08-11':'山の日','2026-09-21':'敬老の日','2026-09-22':'国民の休日','2026-09-23':'秋分の日','2026-10-12':'スポーツの日','2026-11-03':'文化の日','2026-11-23':'勤労感謝の日',
@@ -1171,7 +1191,7 @@
     }
     function entriesOn(month, day){ return shiftEntriesFor(month).filter(e=>e.start<=day && e.end>=day); }
     function sortEntries(list){ const rank=e=>e.kind==='業務'?0:(e.kind==='シフト'||e.kind==='出勤')?1:2; return list.slice().sort((a,b)=>rank(a)-rank(b)||(a.from||'').localeCompare(b.from||'')||a.name.localeCompare(b.name)); }
-    function chipText(e, withTime){ if(e.kind==='業務') return e.label; if(e.kind==='休み') return `${e.name}休み`; if(e.kind==='有給'||e.kind==='振休') return `${e.kind} ${e.name}`; return withTime && e.from ? `${e.from}-${e.to} ${e.name}` : e.name; }
+    function chipText(e, withTime){ if(e.kind==='業務') return `📌 ${e.label}`; if(e.kind==='休み') return `${e.name}休み`; if(e.kind==='有給'||e.kind==='振休') return `${e.kind} ${e.name}`; return withTime && e.from ? `${e.from}-${e.to} ${e.name}` : e.name; }
     function nextShiftFor(name, fromDay){
       const list=[]; [fromDay.slice(0,7), addMonths(fromDay.slice(0,7),1)].forEach(m=>shiftEntriesFor(m).forEach(e=>{ if((e.kind==='シフト'||e.kind==='出勤') && e.name===name && e.start>=fromDay) list.push(e); }));
       list.sort((a,b)=>a.start.localeCompare(b.start)||(a.from||'').localeCompare(b.from||'')); return list[0]||null;
@@ -1274,11 +1294,15 @@
       modal.classList.toggle('show', !!day && !!state.shiftDayOpen); if(!day) return;
       $('shiftDayTitle').textContent=`${fmtDay(day)}${JP_HOLIDAYS[day]?' '+JP_HOLIDAYS[day]:''}`;
       const list=sortEntries(entriesOn(day.slice(0,7),day));
-      $('shiftDayList').innerHTML = list.length ? list.map(e=>{
-        const [bg,fg]=personColor(e.name); const editable=canEditShift(e) && !e.pending;
-        const time = e.kind==='業務' ? '終日' : (e.from ? `${e.from}-${e.to}` : e.kind);
-        return `<div class="log-item${e.pending?' pending':''}"><div class="log-main"><div class="log-line"><span class="tag" style="background:${e.kind==='業務'?'#ccfbf1':bg};color:${e.kind==='業務'?'#115e59':fg}">${esc(time)}</span><span class="name">${esc(e.kind==='業務'?e.label:e.name)}</span>${e.kind!=='業務'&&e.kind!=='シフト'&&e.from?`<span class="tag off">${esc(e.kind)}</span>`:''}${e.pending?'<span class="tag pending">⏳ 保存確認中</span>':''}</div>${e.memo?`<p class="memo">${esc(e.memo)}</p>`:''}<p class="memo">登録: ${esc(e.by||'-')}${e.end!==e.start?` ／ ${esc(fmtDay(e.start))}〜${esc(fmtDay(e.end))}`:''}</p></div><div class="row" style="gap:4px">${editable?`<button class="mini-btn" type="button" data-shift-edit="${esc(e.id)}">変更</button><button class="delete-btn" type="button" data-shift-delete="${esc(e.id)}" title="削除">🗑</button>`:''}</div></div>`;
-      }).join('') : '<div class="empty">予定はありません。「＋ 追加」から登録できます。</div>';
+      const row=e=>{
+        const [bg,fg]=personColor(e.name); const editable=canEditShift(e) && !e.pending; const event=e.kind==='業務';
+        const time = event ? '終日' : (e.from ? `${e.from}-${e.to}` : e.kind);
+        return `<div class="log-item${e.pending?' pending':''}"><div class="log-main"><div class="log-line"><span class="tag${event?' event':''}"${event?'':` style="background:${bg};color:${fg}"`}>${esc(time)}</span><span class="name">${esc(event?e.label:e.name)}</span>${!event&&e.kind!=='シフト'&&e.from?`<span class="tag off">${esc(e.kind)}</span>`:''}${e.pending?'<span class="tag pending">⏳ 保存確認中</span>':''}</div>${e.memo?`<p class="memo">${esc(e.memo)}</p>`:''}<p class="memo">登録: ${esc(e.by||'-')}${e.end!==e.start?` ／ ${esc(fmtDay(e.start))}〜${esc(fmtDay(e.end))}`:''}</p></div><div class="row" style="gap:4px">${editable?`<button class="mini-btn" type="button" data-shift-edit="${esc(e.id)}">変更</button><button class="delete-btn" type="button" data-shift-delete="${esc(e.id)}" title="削除">🗑</button>`:''}</div></div>`;
+      };
+      const events=list.filter(e=>e.kind==='業務'), people=list.filter(e=>e.kind==='シフト'||e.kind==='出勤'), offs=list.filter(e=>e.kind==='休み'||e.kind==='有給'||e.kind==='振休');
+      $('shiftDayList').innerHTML = (events.length?`<p class="shift-section">📌 その日の予定・連絡</p>${events.map(row).join('')}`:'')
+        + `<p class="shift-section">👥 出勤する人（${people.length}人）</p>` + (people.length?people.map(row).join(''):'<div class="empty">まだ登録がありません。「＋ 追加」から登録できます。</div>')
+        + (offs.length?`<p class="shift-section">🏖 休み</p>${offs.map(row).join('')}`:'');
       $('shiftDayList').querySelectorAll('[data-shift-delete]').forEach(b=>b.addEventListener('click',()=>deleteShiftEntry(b.dataset.shiftDelete)));
       $('shiftDayList').querySelectorAll('[data-shift-edit]').forEach(b=>b.addEventListener('click',()=>openShiftModal(day, findShiftEntry(b.dataset.shiftEdit))));
     }
@@ -1303,7 +1327,7 @@
     }
     function setShiftKind(kind){
       state.shiftKind=kind;
-      $('shiftKindChoices').innerHTML=SHIFT_KINDS.map(k=>`<button type="button" class="choice${k===kind?' active':''}" data-kind="${k}">${k}</button>`).join('');
+      $('shiftKindChoices').innerHTML=SHIFT_KINDS.map(k=>`<button type="button" class="choice${k===kind?' active':''}" data-kind="${k}">${SHIFT_KIND_LABELS[k]||k}</button>`).join('');
       $('shiftKindChoices').querySelectorAll('[data-kind]').forEach(b=>b.addEventListener('click',()=>setShiftKind(b.dataset.kind)));
       $('shiftNameRow').classList.toggle('hidden',kind==='業務');
       $('shiftLabelRow').classList.toggle('hidden',kind!=='業務');
