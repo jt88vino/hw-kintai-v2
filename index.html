@@ -45,6 +45,7 @@
     .shift-kinds{grid-template-columns:repeat(3,1fr)}.shift-form label{display:block;font-size:11px;font-weight:900;color:#64748b;margin-bottom:4px}
     .shift-form input,.shift-form select{box-sizing:border-box;width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px}
     .tag.off{background:#e5e7eb;color:#4b5563}
+    .kpi-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.kpi{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:10px 11px;min-width:0}.kpi small{display:block;font-size:10px;color:#64748b;font-weight:900}.kpi b{display:block;font-size:18px;font-weight:950;color:#1e293b;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.3;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.kpi b span{font-size:11px;color:#64748b;font-weight:900;margin:0 1px}.kpi.accent b{color:var(--indigo)}.kpi.over b{color:var(--rose)}.summary-sub{font-size:11px;font-weight:900;color:#475569;margin:14px 0 7px}.summary-note{font-size:11px;font-weight:900;margin-top:10px;line-height:1.5}.rank-list{display:flex;flex-direction:column;gap:7px}.rank-row{display:grid;grid-template-columns:minmax(48px,auto) minmax(0,1fr) auto;gap:8px;align-items:center}.rank-name{font-size:12px;font-weight:950;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:78px}.rank-name.over{color:var(--rose)}.rank-bar{height:9px;background:#e2e8f0;border-radius:99px;overflow:hidden}.rank-bar span{display:block;height:100%;background:var(--indigo);border-radius:99px}.rank-bar span.warn{background:#f59e0b}.rank-bar span.danger{background:#e11d48}.rank-val{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:950;color:#334155;white-space:nowrap;text-align:right;line-height:1.2}.rank-val.over{color:var(--rose)}.rank-val small{display:block;font-family:inherit;font-size:9px;color:#94a3b8;font-weight:900;margin-top:2px}.seg-bar{display:flex;height:12px;border-radius:99px;overflow:hidden;background:#e2e8f0;margin:0 0 8px}.seg-bar span{display:block;height:100%}.seg-legend{display:flex;flex-wrap:wrap;gap:5px 12px;font-size:10px;font-weight:900;color:#475569;line-height:1.5}.seg-legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px;vertical-align:-1px}
     .notice-card{background:#fffbeb;border-color:#fcd34d}.notice-item{padding:8px 0;border-bottom:1px dashed #fde68a;font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-word}.notice-item:last-child{border-bottom:0}.notice-meta{font-size:10px;color:#92400e;font-weight:800;margin-top:2px}
 </style>
 </head>
@@ -144,8 +145,9 @@
       <section id="dashboardTab" class="tab stack fade hidden">
         <div id="dashboardStatus" class="status"></div>
         <div class="card row"><span style="font-size:13px;font-weight:900;color:#475569">表示対象月を選択:</span><select id="selectedMonth" class="month-select"></select></div>
+        <div id="monthSummaryCard" class="card relative"><div class="sync-cover"><div class="spinner"></div></div><div class="row" style="margin-bottom:12px"><h3 id="monthSummaryTitle" class="card-title" style="margin:0">📊 月次サマリー</h3><span id="monthSummaryNote" style="font-size:10px;color:#64748b;font-weight:900;background:#f1f5f9;border-radius:9px;padding:6px 8px;white-space:nowrap">目標 80H</span></div><div id="monthSummary"></div></div>
         <div id="membersCard" class="card relative"><div class="sync-cover"><div class="spinner"></div></div><h3 class="card-title">ステータス</h3><div id="memberStatus" class="member-status"></div></div>
-        <div id="statsCard" class="card relative"><div class="sync-cover"><div class="spinner"></div></div><div class="row" style="margin-bottom:12px"><h3 class="card-title" style="margin:0">📅 月 勤務＆交通費集計</h3><span style="font-size:10px;color:#64748b;font-weight:900;background:#f1f5f9;border-radius:9px;padding:6px 8px">目標 80H想定</span></div><div id="monthlyStats" class="stats-list"></div></div>
+        <div id="statsCard" class="card relative"><div class="sync-cover"><div class="spinner"></div></div><button id="statsToggle" class="card-toggle" type="button" aria-expanded="false" aria-controls="statsBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📅 メンバー別の詳細</h3><div id="statsSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><div id="statsBody" class="hidden" style="margin-top:12px"><div id="monthlyStats" class="stats-list"></div></div></div>
         <div id="tableCard" class="card relative"><div class="sync-cover"><div class="spinner"></div></div><h3 class="card-title">🗄 スプシに溜まるログ</h3><div class="table-wrap"><table class="data-table"><thead><tr><th>名前</th><th>区分</th><th>交通機関/備考</th><th>日時</th><th>操作</th></tr></thead><tbody id="logsTable"></tbody></table></div></div>
       </section>
 
@@ -212,6 +214,8 @@
     const CATEGORY_USERS = ['田中','牛嶋','長谷川','住吉','鈴木'];
     const SHIFT_LIMIT_MS = 18*60*60*1000; // a shift is over 18 hours after clock-in; see shiftMinutes_
     const WORK_CATEGORIES = ['アカデミー','ホームワイン','その他（WT業務）'];
+    const CATEGORY_COLORS = {'アカデミー':'#6366f1','ホームワイン':'#10b981','その他（WT業務）':'#f59e0b'};
+    const TARGET_MINUTES = 80*60;
     const ALLOCATION_ITEMS = [{"id": "hw_production", "label": "HWの生産", "description": "伝票作成/詰め替え/梱包（WT）", "category": "ホームワイン"}, {"id": "hw_support", "label": "HWのお問い合わせ", "description": "メール/Lステップ（HW）", "category": "ホームワイン"}, {"id": "hw_admin", "label": "HWの管理", "description": "発送完了メール/売上処理/ec force配送管理/搬入（HW）", "category": "ホームワイン"}, {"id": "hw_pro", "label": "HWのPRO制作", "description": "PROのH1/Figma（HW）", "category": "ホームワイン"}, {"id": "hw_other", "label": "HWのその他", "description": "搬入などボトル販売/イベント/ツアー ※ホームワイン人件費に含まれない項目", "category": "その他（WT業務）"}, {"id": "hwa_production", "label": "HWAの生産", "description": "伝票作成/詰め替え/梱包", "category": "アカデミー"}, {"id": "hwa_support", "label": "HWAのお問い合わせ", "description": "メール/Lステップ", "category": "アカデミー"}, {"id": "hwa_admin", "label": "HWAの管理", "description": "発送完了メール/売上処理/ec force配送管理/搬入", "category": "アカデミー"}, {"id": "hwa_text", "label": "HWAのテキスト制作", "description": "H1/Figma（HW）、キャンバ、動画", "category": "アカデミー"}, {"id": "hwa_other", "label": "HWAのその他", "description": "搬入などボトル販売/イベント/ツアー ※アカデミー人件費に含まれない項目", "category": "その他（WT業務）"}];
     const DAILY_TRIVIA = [
       'カタツムリはコンクリートを食べる。殻を作るカルシウムを効率よく摂取するためです。 🐌',
@@ -258,7 +262,7 @@
       shiftEditing: null,
       shiftKind: 'シフト',
       notices: sanitizeNotices(safeGet('attendance_notices', [])),
-      collapsed: Object.assign({events:true, todayShift:true}, safeObject(safeGet('attendance_collapsed', {}))),
+      collapsed: Object.assign({events:true, todayShift:true, monthDetail:true}, safeObject(safeGet('attendance_collapsed', {}))),
       appEtag: '',
       refreshing: false,
       deleteTargetLog: null,
@@ -386,7 +390,7 @@
     function setSyncing(v){
       state.isSyncing = !!v;
       $('syncText').textContent = v ? '同期中...' : '';
-      ['recentCard','membersCard','statsCard','tableCard'].forEach(id => { const el=$(id); if(el) el.classList.toggle('syncing', !!v && (id==='recentCard'?state.logs.length===0:id==='membersCard'?state.readOnlyStartup:!state.loadedMonth)); });
+      ['recentCard','membersCard','statsCard','monthSummaryCard','tableCard'].forEach(id => { const el=$(id); if(el) el.classList.toggle('syncing', !!v && (id==='recentCard'?state.logs.length===0:id==='membersCard'?state.readOnlyStartup:!state.loadedMonth)); });
     }
 
     function init(){
@@ -436,7 +440,7 @@
       $('headerRefresh').addEventListener('click', refreshAll);
       $('confirmDialogOk').addEventListener('click', ()=>settleConfirm(true));
       $('confirmDialogCancel').addEventListener('click', ()=>settleConfirm(false));
-      [['eventToggle','events'],['todayShiftToggle','todayShift']].forEach(([id,key])=>{ const b=$(id); if(b) b.addEventListener('click', ()=>{ state.collapsed[key]=!state.collapsed[key]; safeSet('attendance_collapsed', state.collapsed); renderAll(); }); });
+      [['eventToggle','events'],['todayShiftToggle','todayShift'],['statsToggle','monthDetail']].forEach(([id,key])=>{ const b=$(id); if(b) b.addEventListener('click', ()=>{ state.collapsed[key]=!state.collapsed[key]; safeSet('attendance_collapsed', state.collapsed); renderAll(); }); });
       $('cancelDelete').addEventListener('click', closeDeleteModal);
       $('executeDelete').addEventListener('click', confirmDeleteLog);
       $('deletePassword').addEventListener('input', ()=> $('deleteError').classList.add('hidden'));
@@ -892,22 +896,53 @@
       });
       return stats;
     }
+    // Month at a glance: totals for everyone, members ranked against the 80H target, and the split by business.
+    function summarizeMonth(stats, users, costs){
+      stats=stats||{}; costs=costs||{};
+      const rows=(users||[]).map(name=>{
+        const st=stats[name]||{}; const minutes=Number(st.totalMinutes)||0, days=Number(st.daysCount)||0;
+        const transport=Number(costs[name]||0)*(Number(st.paidTransportDays)||0); const ratio=Math.round(minutes/TARGET_MINUTES*100);
+        return {name, minutes, days, transport, ratio, over:minutes>=TARGET_MINUTES, warn:ratio>=80};
+      });
+      rows.sort((a,b)=>b.minutes-a.minutes || a.name.localeCompare(b.name,'ja'));
+      const categories=WORK_CATEGORIES.map(category=>({category, minutes:rows.reduce((sum,r)=>sum+((((stats[r.name]||{}).categoryMinutes)||{})[category]||0),0)}));
+      const categoryTotal=categories.reduce((sum,c)=>sum+c.minutes,0);
+      categories.forEach(c=>{ c.share=categoryTotal?Math.round(c.minutes/categoryTotal*100):0; });
+      return {rows, memberCount:rows.length, activeCount:rows.filter(r=>r.days>0).length, totalMinutes:rows.reduce((sum,r)=>sum+r.minutes,0), totalDays:rows.reduce((sum,r)=>sum+r.days,0), totalTransport:rows.reduce((sum,r)=>sum+r.transport,0), overNames:rows.filter(r=>r.over).map(r=>r.name), idleNames:rows.filter(r=>r.minutes===0 && r.days===0).map(r=>r.name), categories, categoryTotal};
+    }
+    function renderMonthSummary(stats){
+      const box=$('monthSummary'); if(!box) return;
+      const s=summarizeMonth(stats, state.users, state.transportationCosts);
+      const hm=min=>`${Math.floor(min/60)}<span>時間</span>${min%60}<span>分</span>`;
+      const kpis=`<div class="kpi-grid"><div class="kpi accent"><small>合計勤務時間</small><b>${hm(s.totalMinutes)}</b></div><div class="kpi"><small>稼働メンバー</small><b>${s.activeCount}<span>人</span> / ${s.memberCount}<span>人</span></b></div><div class="kpi"><small>延べ出勤日数</small><b>${s.totalDays}<span>日</span></b></div><div class="kpi"><small>交通費合計</small><b>¥${s.totalTransport.toLocaleString()}</b></div></div>`;
+      const over=s.overNames.length?`<div class="summary-note" style="color:var(--rose)">⚠ 80H超え: ${s.overNames.map(n=>esc(n)+'さん').join('、')}</div>`:'';
+      const active=s.rows.filter(r=>r.minutes>0 || r.days>0);
+      const idle=s.idleNames.length?`<div class="summary-note" style="color:#94a3b8">今月の勤務なし: ${s.idleNames.map(esc).join('、')}</div>`:'';
+      const rank=s.rows.length?`<div class="summary-sub">メンバー別（多い順・棒は目標80Hに対する割合）</div><div class="rank-list">${active.map(r=>`<div class="rank-row"><div class="rank-name ${r.over?'over':''}">${esc(r.name)}</div><div class="rank-bar"><span class="${r.over?'danger':r.warn?'warn':''}" style="width:${r.minutes>0?Math.max(2,Math.min(100,r.ratio)):0}%"></span></div><div class="rank-val ${r.over?'over':''}">${Math.floor(r.minutes/60)}時間${String(r.minutes%60).padStart(2,'0')}分<small>${r.days}日${r.transport?` ・ ¥${r.transport.toLocaleString()}`:''}</small></div></div>`).join('')}</div>`:'<div class="empty">メンバーが登録されていません。</div>';
+      const seg=s.categoryTotal?`<div class="summary-sub">業務別の内訳（${CATEGORY_USERS.filter(n=>state.users.includes(n)).join('・')}）</div><div class="seg-bar">${s.categories.filter(c=>c.minutes).map(c=>`<span style="flex:${c.minutes} 1 0;background:${CATEGORY_COLORS[c.category]||'#94a3b8'}" title="${esc(c.category)}"></span>`).join('')}</div><div class="seg-legend">${s.categories.map(c=>`<span><i style="background:${CATEGORY_COLORS[c.category]||'#94a3b8'}"></i>${esc(c.category)} ${Math.floor(c.minutes/60)}時間${c.minutes%60}分（${c.share}%）</span>`).join('')}</div>`:'';
+      box.innerHTML=kpis+over+rank+idle+seg;
+    }
     function renderDashboard(){
       renderEvents();
       const months = Array.from(new Set(state.availableMonths.concat(state.logs.map(l=>l.month).filter(Boolean),getCurrentMonth()))).sort().reverse();
       if(!months.includes(state.selectedMonth)) months.unshift(state.selectedMonth);
       $('selectedMonth').innerHTML = months.map(m=>`<option value="${esc(m)}">${esc(m.replace('-','年'))}月</option>`).join('');
       $('selectedMonth').value = state.selectedMonth;
-      const title = $('statsCard').querySelector('.card-title'); if(title) title.textContent = `📅 ${state.selectedMonth.replace('-','年')}月 勤務＆交通費集計`;
+      const title = $('statsCard').querySelector('.card-title'); if(title) title.textContent = `📅 ${state.selectedMonth.replace('-','年')}月 メンバー別の詳細`;
+      applyCollapse('statsToggle','statsBody','statsSummary', !state.collapsed.monthDetail, '交通費の内訳と業務配分をメンバーごとに表示');
+      const summaryTitle=$('monthSummaryTitle'); if(summaryTitle) summaryTitle.textContent=`📊 ${state.selectedMonth.replace('-','年')}月 月次サマリー`;
+      const summaryNote=$('monthSummaryNote'); if(summaryNote){ const t=todayYmd(); summaryNote.textContent = t.slice(0,7)===state.selectedMonth ? `${+t.slice(5,7)}/${+t.slice(8,10)} 時点 ・ 目標 80H` : '目標 80H'; }
       $('memberStatus').innerHTML = state.users.map(name=>{ const c=getUserCurrentStatus(name); const ts=todayShiftFor(name); return `<div class="member-row"><div><b>${esc(name)} さん</b><small>最終打刻: ${c.time !== '-' ? `${esc(c.time)} (${esc(c.rawType)})` : '打刻なし'}${ts?` ／ 本日シフト ${esc(ts.from)}-${esc(ts.to)}`:''}</small></div><span class="status-pill ${c.cls}">${esc(c.status)}</span></div>`; }).join('');
       const haveMonth=Array.isArray(state.monthLogs) && state.loadedMonth===state.selectedMonth;
       if(state.gasUrl && !haveMonth){
         const message=state.monthLoading?'対象月の勤怠を読み込み中…':state.monthError?'対象月の取得に失敗しました。再同期してください。':'対象月を選択すると勤怠を読み込みます。';
         $('monthlyStats').innerHTML='<div class="empty">'+esc(message)+'</div>';
+        if($('monthSummary')) $('monthSummary').innerHTML='<div class="empty">'+esc(message)+'</div>';
         $('logsTable').innerHTML='<tr><td colspan="5" class="empty">'+esc(message)+'</td></tr>';
         return;
       }
       const stats = calculateMonthlyStats(state.selectedMonth);
+      renderMonthSummary(stats);
       $('monthlyStats').innerHTML = state.users.map(name=>{
         const st=stats[name]||{totalMinutes:0,daysCount:0,paidTransportDays:0}; const h=Math.floor(st.totalMinutes/60), m=st.totalMinutes%60, over=h>=80, ratio=Math.min(100, Math.round((st.totalMinutes/(80*60))*100));
         const dailyCost = Number(state.transportationCosts[name]||0); const totalTransport = dailyCost * st.paidTransportDays; const barCls = over ? 'danger' : ratio >= 80 ? 'warn' : '';
