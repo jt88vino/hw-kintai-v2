@@ -59,11 +59,13 @@
             <p>八王子事務所 <span id="syncText"></span></p>
           </div>
         </div>
+        <button id="headerRefresh" class="mini-btn" type="button" aria-label="最新の状態に更新" style="margin-left:auto;flex:none;font-size:12px;padding:8px 11px">⟳ 更新</button>
       </div>
     </header>
 
     <main class="main">
       <div id="runtimeError" class="status error"></div>
+      <div id="updateNotice" class="status info">新しいバージョンがあります。右上の「⟳ 更新」を押すと切り替わります。</div>
       <section id="punchTab" class="tab stack fade">
         <div class="card now-weather-card">
           <div class="now-weather-head only-date">
@@ -258,6 +260,8 @@
       shiftKind: 'シフト',
       notices: sanitizeNotices(safeGet('attendance_notices', [])),
       collapsed: Object.assign({events:true, todayShift:true}, safeObject(safeGet('attendance_collapsed', {}))),
+      appEtag: '',
+      refreshing: false,
       deleteTargetLog: null,
       deleteRecent: false,
       isDeleteSubmitting: false,
@@ -393,6 +397,7 @@
         startClock();
         fetchWeather();
         syncLogsFromGAS('startup');
+        checkAppVersion();
         drainPunchQueue();
         loadShiftMonth(getCurrentMonth(), true);
         { const ahead=new Date(); ahead.setDate(ahead.getDate()+7); const m=ymd(ahead).slice(0,7); if(m!==getCurrentMonth()) loadShiftMonth(m, true); }
@@ -429,6 +434,7 @@
       $('shiftCancel').addEventListener('click', closeShiftModal);
       $('shiftSave').addEventListener('click', saveShiftEntry);
       $('noticePost').addEventListener('click', postNotice);
+      $('headerRefresh').addEventListener('click', refreshAll);
       [['eventToggle','events'],['eventToggleDash','events'],['todayShiftToggle','todayShift']].forEach(([id,key])=>{ const b=$(id); if(b) b.addEventListener('click', ()=>{ state.collapsed[key]=!state.collapsed[key]; safeSet('attendance_collapsed', state.collapsed); renderAll(); }); });
       $('cancelDelete').addEventListener('click', closeDeleteModal);
       $('executeDelete').addEventListener('click', confirmDeleteLog);
@@ -436,6 +442,7 @@
       $('showDebugBtn').addEventListener('click', toggleDebug);
       document.addEventListener('visibilitychange', ()=>{
         if(!document.hidden && !state.isSyncing && !state.isPunchSubmitting) syncLogsFromGAS('visible');
+        if(!document.hidden) checkAppVersion().then(changed=>{ if(changed) $('updateNotice').className='status info show'; });
       });
     }
     function startClock(){
@@ -1020,6 +1027,28 @@
       $('cancelPunch').textContent='キャンセル';
       $('confirmModal').classList.add('show');
       if(category && type==='退勤') { $('confirmDetails').querySelectorAll('[data-allocation-input]').forEach(el=>el.addEventListener('input',updateAllocationTotal)); updateAllocationTotal(); }
+    }
+    // The served page's ETag stands for the app version: a change means a newer build is out.
+    async function checkAppVersion(){
+      try{
+        if(typeof fetch!=='function') return false;
+        const r=await fetch(location.pathname+'?v='+Date.now(),{method:'HEAD',cache:'no-store'});
+        const tag=String(r.headers.get('etag')||'').replace(/^W\//,'');
+        if(!tag) return false;
+        if(!state.appEtag){ state.appEtag=tag; return false; }
+        return tag!==state.appEtag;
+      }catch(e){ return false; }
+    }
+    // Pull everything again; switch to a newer build if one is out.
+    async function refreshAll(){
+      if(state.refreshing) return;
+      state.refreshing=true;
+      const btn=$('headerRefresh'); const label=btn?btn.textContent:''; if(btn){ btn.disabled=true; btn.textContent='⟳ 更新中…'; }
+      try{
+        await Promise.allSettled([syncLogsFromGAS('manual'), loadShiftMonth(getCurrentMonth(),true), state.shiftMonth!==getCurrentMonth()?loadShiftMonth(state.shiftMonth,true):Promise.resolve()]);
+        if(await checkAppVersion()){ location.reload(); return; }
+        renderAll();
+      } finally { state.refreshing=false; if(btn){ btn.disabled=false; btn.textContent=label; } }
     }
     function applyCollapse(toggleId, bodyId, summaryId, open, summary){
       const btn=$(toggleId), body=$(bodyId), sum=$(summaryId);
