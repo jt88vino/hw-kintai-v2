@@ -187,6 +187,7 @@
     <footer class="footer"><div class="footer-inner"><button class="nav-btn active" data-tab="punch"><span class="nicon">⏱</span><span>打刻する</span></button><button class="nav-btn" data-tab="shift"><span class="nicon">📅</span><span>シフト</span></button><button class="nav-btn" data-tab="dashboard"><span class="nicon">👥</span><span>ダッシュボード</span></button><button class="nav-btn" data-tab="settings"><span class="nicon">⚙️</span><span>名簿・連携設定</span></button></div></footer>
   </div>
 
+  <div id="confirmDialog" class="modal"><div class="modal-box"><div class="modal-head warn"><span style="font-size:22px">🗑</span><div><h4>消していいですか？</h4><div style="font-size:11px;color:#64748b;font-weight:800">復元できません</div></div></div><div id="confirmDialogBody" class="confirm-box"></div><div class="modal-actions"><button id="confirmDialogCancel" class="btn btn-gray" type="button">やめる</button><button id="confirmDialogOk" class="btn btn-rose" type="button">消す</button></div></div></div>
   <div id="shiftDayModal" class="modal"><div class="modal-box" style="max-width:420px"><div class="row" style="align-items:center;margin-bottom:10px"><h4 id="shiftDayTitle" style="margin:0;font-size:16px"></h4><div style="display:flex;gap:6px"><button id="shiftAddBtn" class="mini-btn" type="button">＋ 追加</button><button id="shiftDayClose" class="mini-btn" type="button">閉じる</button></div></div><div id="shiftDayList" class="log-list" style="max-height:62vh"></div></div></div>
   <div id="shiftModal" class="modal"><div class="modal-box shift-form"><div class="modal-head info"><span style="font-size:22px">📅</span><div><h4 id="shiftModalTitle">予定を追加</h4><div style="font-size:11px;color:#64748b;font-weight:800">全員の画面に反映されます</div></div></div>
     <div class="stack" style="margin-top:12px">
@@ -200,7 +201,7 @@
     </div>
     <div class="modal-actions"><button id="shiftCancel" class="btn btn-gray" type="button">キャンセル</button><button id="shiftSave" class="btn btn-indigo" type="button">登録する</button></div></div></div>
   <div id="confirmModal" class="modal"><div class="modal-box"><div class="modal-head info"><span style="font-size:22px">⏱</span><div><h4>打刻のご確認</h4><div style="font-size:11px;color:#64748b;font-weight:800">内容を今一度ご確認ください</div></div></div><div id="confirmDetails" class="confirm-box"></div><div class="modal-actions"><button id="cancelPunch" class="btn btn-gray">キャンセル</button><button id="executePunch" class="btn btn-indigo">はい、打刻する</button></div></div></div>
-  <div id="deleteModal" class="modal"><div class="modal-box"><div class="modal-head warn"><span style="font-size:22px">⚠️</span><div><h4>打刻取り消し確認</h4></div></div><div id="deleteDetails" class="confirm-box"></div><div id="deletePasswordBox"><label for="deletePassword" style="font-size:11px">管理者パスワードを入力して削除を実行</label><input id="deletePassword" type="password" placeholder="パスワード" style="text-align:center"></div><div id="deleteError" class="err-text hidden"></div><div id="deleteProgress" role="status" aria-live="polite" style="font-size:12px;line-height:1.6;margin-top:10px"></div><div class="modal-actions"><button id="cancelDelete" class="btn btn-gray">やめる</button><button id="executeDelete" class="btn btn-rose">削除を実行する</button></div></div></div>
+  <div id="deleteModal" class="modal"><div class="modal-box"><div class="modal-head warn"><span style="font-size:22px">⚠️</span><div><h4>打刻取り消し確認</h4><div style="font-size:11px;color:#64748b;font-weight:800">消していいですか？ 復元できません。</div></div></div><div id="deleteDetails" class="confirm-box"></div><div id="deletePasswordBox"><label for="deletePassword" style="font-size:11px">管理者パスワードを入力して削除を実行</label><input id="deletePassword" type="password" placeholder="パスワード" style="text-align:center"></div><div id="deleteError" class="err-text hidden"></div><div id="deleteProgress" role="status" aria-live="polite" style="font-size:12px;line-height:1.6;margin-top:10px"></div><div class="modal-actions"><button id="cancelDelete" class="btn btn-gray">やめる</button><button id="executeDelete" class="btn btn-rose">削除を実行する</button></div></div></div>
 
   <noscript><div class="startup"><b>JavaScriptが無効です。</b><br>この勤怠管理画面を使うには、ブラウザのJavaScriptを有効にしてください。</div></noscript>
 
@@ -435,6 +436,8 @@
       $('shiftSave').addEventListener('click', saveShiftEntry);
       $('noticePost').addEventListener('click', postNotice);
       $('headerRefresh').addEventListener('click', refreshAll);
+      $('confirmDialogOk').addEventListener('click', ()=>settleConfirm(true));
+      $('confirmDialogCancel').addEventListener('click', ()=>settleConfirm(false));
       [['eventToggle','events'],['eventToggleDash','events'],['todayShiftToggle','todayShift']].forEach(([id,key])=>{ const b=$(id); if(b) b.addEventListener('click', ()=>{ state.collapsed[key]=!state.collapsed[key]; safeSet('attendance_collapsed', state.collapsed); renderAll(); }); });
       $('cancelDelete').addEventListener('click', closeDeleteModal);
       $('executeDelete').addEventListener('click', confirmDeleteLog);
@@ -1157,14 +1160,21 @@
       // Only a punch that was never sent goes out by itself. An uncertain send waits for the user.
       if(state.pendingPunch.sent===false && state.pendingPunch.gasUrl===state.gasUrl) sendPending();
     }
-    function discardPendingPunch(){
+    async function discardPendingPunch(){
       const pending=state.pendingPunch;
       if(!pending || headSend || state.isPunchSubmitting) return;
-      const ok=typeof window.confirm==='function' ? window.confirm(`${pending.log.name}さんの${pending.log.type}（${getHHMM(pending.log.time)}）を取り消します。この打刻は記録されません。`) : true;
+      const ok=await askConfirm(`<div class="row"><span>${esc(pending.log.name)}さんの${esc(pending.log.type)}</span><span>${esc(getHHMM(pending.log.time))}</span></div><p style="margin:8px 0 0;font-size:12px">この打刻は記録されません。</p>`,'取り消す');
       if(!ok) return;
+      if(!state.pendingPunch || headSend || state.isPunchSubmitting) return;
       clearPendingPunch(); state.confirmPunch=null; $('confirmModal').classList.remove('show');
       showStatus('打刻を取り消しました。','info'); renderAll(); drainPunchQueue();
     }
+    // In-app "消していいですか？" dialog used by every delete button; resolves true only on 消す.
+    let confirmResolver=null;
+    function askConfirm(body, okLabel){
+      return new Promise(resolve=>{ confirmResolver=resolve; $('confirmDialogBody').innerHTML=body||''; $('confirmDialogOk').textContent=okLabel||'消す'; $('confirmDialog').classList.add('show'); });
+    }
+    function settleConfirm(value){ $('confirmDialog').classList.remove('show'); const r=confirmResolver; confirmResolver=null; if(r) r(!!value); }
     // ===== お知らせ =====
     function sanitizeNotices(arr){ return (Array.isArray(arr)?arr:[]).filter(n=>n && n.id && n.text).map(n=>({id:String(n.id),text:String(n.text),from:String(n.from||''),until:String(n.until||''),by:String(n.by||''),at:String(n.at||'')})); }
     function renderNotices(){
@@ -1192,7 +1202,7 @@
     }
     async function deleteNotice(id){
       const n=state.notices.find(x=>x.id===id); if(!n) return;
-      const ok=typeof window.confirm==='function' ? window.confirm('このお知らせを削除します。よろしいですか？') : true; if(!ok) return;
+      const ok=await askConfirm(`<div style="white-space:pre-wrap">${esc(n.text)}</div>`); if(!ok) return;
       try{
         const result=await sendGASAdminAction({action:'noticeDelete',id:id});
         if(!result || result.ok!==true) throw new Error('削除結果を確認できませんでした。');
@@ -1354,9 +1364,9 @@
       const d=state.shiftData[state.shiftMonth]; const list=d && Array.isArray(d.changes) ? d.changes : [];
       $('shiftChanges').innerHTML = list.length ? list.slice(0,15).map(c=>`<div class="log-item"><div class="log-main"><div class="log-line"><span class="tag ${c.deleted?'unconfirmed':'in'}">${c.deleted?'削除':'追加'}</span><span class="name">${esc(chipText(c,true))}</span><span class="memo">${esc(fmtDay(c.start))}${c.end&&c.end!==c.start?'〜'+esc(fmtDay(c.end)):''}</span></div><p class="memo">${esc(c.deleted?(c.deletedBy||''):(c.by||''))} ・ ${esc(shortWhen(c.deleted?c.deletedAt:c.at))}</p></div></div>`).join('') : '<div class="empty">まだ変更はありません。</div>';
     }
-    function deleteShiftEntry(id){
+    async function deleteShiftEntry(id){
       const e=findShiftEntry(id); if(!e || e.pending) return;
-      const ok=typeof window.confirm==='function' ? window.confirm(`${chipText(e,true)}（${fmtDay(e.start)}）を削除します。よろしいですか？`) : true;
+      const ok=await askConfirm(`<div class="row"><span>${esc(fmtDay(e.start))}${e.end!==e.start?`〜${esc(fmtDay(e.end))}`:''}</span><span>${esc(chipText(e,true))}</span></div>`);
       if(!ok) return;
       queueShiftOp({op:'delete',id:e.id,month:e.start.slice(0,7),by:state.selectedUser||(state.isAdminAuthenticated?'管理者':''),sent:false});
       showStatus('予定を削除しました。','success');

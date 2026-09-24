@@ -4,7 +4,7 @@ function client(storage=new Map()){
  let now=0;class Clock extends Date {static now(){return now;}}
  const nodes=new Map();const el=id=>{if(!nodes.has(id)){const classes=new Set();nodes.set(id,{value:'',textContent:'',innerHTML:'',disabled:false,classes,classList:{toggle(k,v){v?classes.add(k):classes.delete(k)},add:k=>classes.add(k),remove:k=>classes.delete(k)},querySelectorAll:()=>[],insertAdjacentHTML(_,html){this.innerHTML+=html;}});}return nodes.get(id);};
  const ctx={Date:Clock,URL,URLSearchParams,AbortController,console,setTimeout:(fn,ms)=>{const t=setTimeout(fn,ms);if(t.unref)t.unref();return t;},clearTimeout,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},window:{location:{hostname:'hw-kintai-v2.vercel.app'},addEventListener(){},crypto},document:{getElementById:el,querySelectorAll:()=>[]}};
- vm.createContext(ctx);vm.runInContext(source.replace("if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();",`window.test={state,adminRequest,readGASDataOnce,executePunch,closePunchModal,resumePendingPunch,performSync,rememberPendingPunch,renderPendingPunch,readAllocationInputs,punchQueueIdle,drainPunchQueue,discardPendingPunch,
+ vm.createContext(ctx);vm.runInContext(source.replace("if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();",`window.test={state,adminRequest,readGASDataOnce,executePunch,closePunchModal,resumePendingPunch,performSync,rememberPendingPunch,renderPendingPunch,readAllocationInputs,punchQueueIdle,drainPunchQueue,discardPendingPunch,settleConfirm,
  setRead:fn=>readGASViaJSONP=fn,setSend:fn=>adminRequest=fn,setWait:fn=>wait=fn,setSyncRead:fn=>readGASDataOnce=fn,
  prepare:()=>{renderAll=()=>{};renderPunch=()=>{};setSyncing=()=>{};}};`),ctx);
  const api=ctx.window.test;api.prepare();api.setWait(async ms=>{now+=ms;});return {ctx,api,el,storage,advance:ms=>now+=ms};
@@ -64,7 +64,7 @@ const draft=()=>({userName:log.name,punchType:log.type,transport:log.transport,m
  // An unconfirmed send stays closed and hands over to the pending card; discarding it clears the way.
  c=client();c.api.state.confirmPunch=draft();c.api.setSend(async()=>{throw Object.assign(Error('offline'),{code:'result_unconfirmed'});});
  await c.api.executePunch();await c.api.punchQueueIdle();assert.equal(c.el('confirmModal').classes.has('show'),false);assert(c.api.state.pendingPunch);assert.equal(c.api.state.pendingPunch.rejected,false);assert.equal(c.api.state.confirmPunch,null);assert.match(c.el('statusMessage').textContent,/保存確認・再送/);
- c.api.discardPendingPunch();assert.equal(c.api.state.pendingPunch,null);assert.equal(c.storage.get('attendance_pending_punch'),'null');
+ { const p=c.api.discardPendingPunch();c.api.settleConfirm(true);await p; }assert.equal(c.api.state.pendingPunch,null);assert.equal(c.storage.get('attendance_pending_punch'),'null');
  // After a reload, an already-sent punch is never re-sent by itself, but a queued one continues once the head is confirmed.
  c=client();const held=[];c.api.setSend(()=>new Promise(r=>held.push(r)));c.api.state.confirmPunch=draft();await c.api.executePunch();const headId=c.api.state.pendingPunch.log.id;
  c.api.state.confirmPunch={...draft(),punchType:'休憩開始',fixedTime:{full:'2026-09-18 10:00:00',monthOnly:'2026-09',display:'10:00'}};await c.api.executePunch();assert.equal(c.api.state.punchQueue.length,1);
