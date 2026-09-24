@@ -18,10 +18,19 @@ const logs=[{name:'田中',type:'出勤',time:'2026-09-17 23:00:00'},{name:'田�
 assert.equal(gas.shiftMinutes_([{name:'牛嶋',type:'出勤',time:'2026-09-18 9:22:45'}],'牛嶋','2026-09-18 18:00:00'),517);
 assert.equal(gas.shiftMinutes_([{name:'牛嶋',type:'出勤',time:'2026-09-20 0:03:07'}],'牛嶋','2026-09-20 09:00:00'),536);
 assert.equal(gas.shiftMinutes_([{name:'牛嶋',type:'出勤',time:'2026/9/18 9:22:45'}],'牛嶋','2026-09-18 18:00:00'),517);
+// A clock-out more than 18 hours after the clock-in belongs to no shift; a later clock-in starts a new one.
+assert.equal(gas.shiftMinutes_([{name:'牛嶋',type:'出勤',time:'2026-09-17 09:00:00'}],'牛嶋','2026-09-18 09:00:00'),null);
+assert.equal(gas.shiftMinutes_([{name:'牛嶋',type:'出勤',time:'2026-09-17 09:00:00'},{name:'牛嶋',type:'出勤',time:'2026-09-18 09:00:00'}],'牛嶋','2026-09-18 18:00:00'),540);
+assert.equal(gas.shiftMinutes_([{name:'牛嶋',type:'出勤',time:'2026-09-17 09:00:00'},{name:'牛嶋',type:'休憩開始',time:'2026-09-18 10:00:00'}],'牛嶋','2026-09-18 18:00:00'),null);
+{ // the read index closes a session that outlived the limit, so the next day's punches start clean
+  const idx={version:1,lastRow:1,builtAt:Date.now(),months:{},latest:{},sessions:{},recent:[],maxTime:'',revision:'r'};
+  gas.updateReadIndex_(idx,[['t','牛嶋','出勤','2026-09-17 09:00:00','2026-09','a','','','業務配分'],['t','牛嶋','退勤','2026-09-18 09:30:00','2026-09','b','','','業務配分'],['t','牛嶋','出勤','2026-09-18 10:00:00','2026-09','c','','','業務配分']],2);
+  assert.equal(JSON.stringify(idx.sessions['牛嶋']),'[4]');assert.equal(idx.sessionStart['牛嶋'],'2026-09-18 10:00:00');
+}
 const html=fs.readFileSync('index.html','utf8'),script=html.match(/<script>([\s\S]*?)<\/script>/)[1];const nodes=new Map();
 function el(id){if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',innerHTML:'',disabled:false,querySelectorAll:()=>[],classList:{add(){},remove(){},toggle(){}},focus(){}});return nodes.get(id);}
 const client={Date,URLSearchParams,Set,console,localStorage:{getItem(){return null},setItem(){}},window:{addEventListener(){},crypto:{randomUUID:()=> 'request-1'}},document:{getElementById:el,querySelectorAll:()=>[]},setTimeout(){return 1},clearTimeout(){}};vm.createContext(client);
-vm.runInContext(script.replace("if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();",`window.test={state,triggerPunchConfirmation,executePunch,calculateMonthlyStats,readAllocationInputs,syncLogsFromGAS,applyGasReadData,setSend:fn=>{adminRequest=fn;},setSync:fn=>{performSync=fn;},prepare:()=>{renderAll=()=>{};renderPunch=()=>{};getJSTDateTime=()=>({full:'2026-09-17 12:00:00',monthOnly:'2026-09',display:'12:00'});}};`),client);
+vm.runInContext(script.replace("if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();",`window.test={state,triggerPunchConfirmation,executePunch,calculateMonthlyStats,readAllocationInputs,syncLogsFromGAS,applyGasReadData,punchQueueIdle,setSend:fn=>{adminRequest=fn;},setSync:fn=>{performSync=fn;},prepare:()=>{renderAll=()=>{};renderPunch=()=>{};getJSTDateTime=()=>({full:'2026-09-17 12:00:00',monthOnly:'2026-09',display:'12:00'});}};`),client);
 const api=client.window.test;api.prepare();api.state.selectedUser='田中';api.state.users=['田中'];api.state.logs=rows.slice(1,4).map(r=>({id:r[5],name:r[1],type:r[2],time:r[3],month:r[4],category:r[8],transport:'',allocations:[]}));
 api.triggerPunchConfirmation('退勤');assert.equal(api.state.confirmPunch.targetMinutes,165);assert.match(el('confirmDetails').innerHTML,/HWAのテキスト制作/);assert.equal(api.state.confirmPunch.category,'業務配分');
 el('hw_production_hours').value='1';el('hw_production_memo').value='伝票作成';el('hwa_text_hours').value='1';el('hwa_text_minutes').value='45';el('hwa_text_memo').value='動画制作';
@@ -29,11 +38,17 @@ el('hw_support_minutes').value='-1';assert.equal(Number.isNaN(api.readAllocation
 assert.throws(()=>api.applyGasReadData({ok:false,error:'read_error'}),/read_error/);assert.throws(()=>api.applyGasReadData({ok:true}),/読み取れません/);
 (async()=>{
  let sends=0,resolve;api.setSend(()=>{sends++;return new Promise(r=>resolve=r)});
- const pending=api.executePunch();await api.executePunch();assert.equal(sends,1);assert.equal(api.state.isPunchSubmitting,true);resolve({...result,id:'request-1'});await pending;assert.equal(api.state.isPunchSubmitting,false);assert.equal(api.state.logs[0].memo,result.memo);
+ await api.executePunch();await api.executePunch();assert.equal(sends,1);assert.equal(api.state.isPunchSubmitting,false);assert.equal(api.state.confirmPunch,null);assert(api.state.pendingPunch);resolve({...result,id:'request-1'});await api.punchQueueIdle();assert.equal(api.state.pendingPunch,null);assert.equal(api.state.logs[0].memo,result.memo);
  const stats=api.calculateMonthlyStats('2026-09')['田中'];assert.equal(stats.totalMinutes,165);assert.equal(stats.categoryMinutes['ホームワイン'],60);assert.equal(stats.categoryMinutes['アカデミー'],105);
  let syncs=0,done;api.setSync(()=>{syncs++;return new Promise(r=>done=r)});const first=api.syncLogsFromGAS('manual'),second=api.syncLogsFromGAS('tab');assert.equal(first,second);assert.equal(syncs,1);done();await first;
  api.state.selectedUser='田中';api.state.confirmPunch=null;api.state.logs=[{id:'s1',name:'田中',type:'出勤',time:'2026-09-17 9:22:45',month:'2026-09',category:'業務配分',transport:'',memo:'',allocations:[]}];
  api.triggerPunchConfirmation('退勤');assert.equal(api.state.confirmPunch.targetMinutes,157);
  api.state.selectedUser='橋本';api.triggerPunchConfirmation('出勤');assert.equal(api.state.confirmPunch.category,'');
- console.log('PASS: 10 allocations, net shift time, overnight break, unpadded sheet hours, mismatch/negative/duplicate rejection, pipe memo, sheet numeric durations, rapid-submit lock, monthly categories, shared sync promise and failed response rejection');
+ api.state.confirmPunch=null;api.state.users=['橋本'];api.state.logs=[{id:'old',name:'橋本',type:'出勤',time:'2026-09-16 09:00:00',month:'2026-09',category:'',transport:'',memo:'',allocations:[]}];
+ api.triggerPunchConfirmation('退勤');assert.equal(api.state.confirmPunch,null);assert.match(el('statusMessage').textContent,/18時間以上/);
+ api.triggerPunchConfirmation('休憩開始');assert.equal(api.state.confirmPunch,null);
+ api.state.logs=[];api.triggerPunchConfirmation('退勤');assert.match(el('statusMessage').textContent,/先に「出勤」/);
+ api.state.logs=[{id:'today',name:'橋本',type:'出勤',time:'2026-09-17 09:00:00',month:'2026-09',category:'',transport:'',memo:'',allocations:[]}];api.triggerPunchConfirmation('退勤');assert.equal(api.state.confirmPunch.punchType,'退勤');assert.equal(api.state.confirmPunch.targetMinutes,null);
+ { const stats=api.calculateMonthlyStats('2026-09'); assert.equal(stats['橋本'].totalMinutes,0); }
+ console.log('PASS: 10 allocations, net shift time, overnight break, unpadded sheet hours, 18-hour shift limit, mismatch/negative/duplicate rejection, pipe memo, sheet numeric durations, queued checkout confirmed in background, monthly categories, shared sync promise and failed response rejection');
 })().catch(e=>{console.error(e);process.exitCode=1});

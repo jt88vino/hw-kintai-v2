@@ -251,7 +251,7 @@ function addLog_(sheet, params) {
       const match = '($B$2:$B$'+p+'=B'+r+')' + (category==='業務配分'?'':'*($I$2:$I$'+p+'=I'+r+')');
       const prevType = 'LOOKUP(2,ARRAYFORMULA(1/('+match+')),$C$2:$C$'+p+')';
       const prevTime = 'LOOKUP(2,ARRAYFORMULA(1/('+match+')),$D$2:$D$'+p+')';
-      sheet.getRange(r,10).setFormula('=IFERROR(IF(AND(OR(C'+r+'="退勤",C'+r+'="休憩開始"),OR('+prevType+'="出勤",'+prevType+'="休憩終了")),MAX(0,VALUE(D'+r+')-VALUE('+prevTime+')),0),0)').setNumberFormat('[h]:mm:ss');
+      sheet.getRange(r,10).setFormula('=IFERROR(IF(AND(OR(C'+r+'="退勤",C'+r+'="休憩開始"),OR('+prevType+'="出勤",'+prevType+'="休憩終了"),VALUE(D'+r+')-VALUE('+prevTime+')<=0.75),MAX(0,VALUE(D'+r+')-VALUE('+prevTime+')),0),0)').setNumberFormat('[h]:mm:ss');
     }
     if(allocations.length) sheet.getRange(rowNumber,11,1,10).setNumberFormat("[h]:mm");
     SpreadsheetApp.flush();
@@ -356,12 +356,17 @@ function updateReadIndex_(index, rows, startRow) {
     const time=indexTime_(row[3]);
     entries.push({n:n,name:row[1],type:row[2],time:time,month:month,category:row[8]||''});
   });
+  index.sessionStart=index.sessionStart||{};
+  const timeOf=t=>new Date(String(t).replace(' ','T')+'+09:00').getTime();
   entries.sort((a,b)=>a.time.localeCompare(b.time)||a.n-b.n).forEach(e=>{
     const key=JSON.stringify([e.name,e.category]);
     index.months[e.month].last[key]=[e.n,e.time];
     index.latest[e.name]=e.n;
     let session=index.sessions[e.name]||[];
-    if(e.type==='出勤' && !session.length) session=[e.n];
+    // An open session past the shift limit is over; the next punch starts from nothing.
+    const started=index.sessionStart[e.name];
+    if(session.length && started && timeOf(e.time)-timeOf(started)>SHIFT_LIMIT_MS) session=[];
+    if(e.type==='出勤' && !session.length){session=[e.n]; index.sessionStart[e.name]=e.time;}
     else if(e.type==='退勤') session=[];
     else if(session.length) session.push(e.n);
     index.sessions[e.name]=session;
@@ -853,18 +858,22 @@ function validateAllocations_(allocations) {
   }
   return null;
 }
+// A shift is over 18 hours after its clock-in, whatever comes next: a forgotten clock-out
+// must not pair with the next day's punches, and a later clock-in starts a new shift.
+const SHIFT_LIMIT_MS = 18*60*60*1000;
 function shiftMinutes_(logs,name,endTime) {
   // Sheets display values drop the leading zero on the hour ("2026-09-18 9:22:45"),
   // which is not valid ISO 8601. indexTime_ pads it before parsing.
   const parse=t=>new Date(indexTime_(t).replace(" ","T")+"+09:00").getTime();
-  const end=parse(endTime); let active=false, working=false, start=0, ms=0;
+  const end=parse(endTime); let active=false, working=false, start=0, ms=0, shiftStart=0;
   logs.filter(l=>l.name===name && parse(l.time)<=end).sort((a,b)=>parse(a.time)-parse(b.time)).forEach(l=>{
     const t=parse(l.time);
-    if(l.type==='出勤' && !active){active=true;working=true;start=t;ms=0;}
+    if(active && t-shiftStart>SHIFT_LIMIT_MS){active=false;working=false;ms=0;}
+    if(l.type==='出勤' && !active){active=true;working=true;start=t;shiftStart=t;ms=0;}
     else if(l.type==='休憩開始' && active && working){ms+=Math.max(0,t-start);working=false;}
     else if(l.type==='休憩終了' && active && !working){start=t;working=true;}
     else if(l.type==='退勤'){active=false;working=false;ms=0;}
   });
-  if(!active || !Number.isFinite(end)) return null;
+  if(!active || !Number.isFinite(end) || end-shiftStart>SHIFT_LIMIT_MS) return null;
   return Math.floor((ms+(working?Math.max(0,end-start):0))/60000);
 }
