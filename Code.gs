@@ -4,7 +4,7 @@ const SPREADSHEET_ID = "1SjRkvg9kk1YFjJKROBlxXFHp10xO3_mC-JSq9yAM9lk";
 // マスターシート名
 const MASTER_SHEET_NAME = "勤怠マスタ";
 const MEMBER_SHEET_SUFFIX = "_勤務表";
-const CATEGORY_USERS = ["田中", "牛嶋", "長谷川", "住吉"];
+const CATEGORY_USERS = ["田中", "牛嶋", "長谷川", "住吉", "鈴木"];
 const WORK_CATEGORIES = ["アカデミー", "ホームワイン", "その他（WT業務）"];
 const ALLOCATION_ITEMS = [{"id": "hw_production", "label": "HWの生産", "description": "伝票作成/詰め替え/梱包（WT）", "category": "ホームワイン"}, {"id": "hw_support", "label": "HWのお問い合わせ", "description": "メール/Lステップ（HW）", "category": "ホームワイン"}, {"id": "hw_admin", "label": "HWの管理", "description": "発送完了メール/売上処理/ec force配送管理/搬入（HW）", "category": "ホームワイン"}, {"id": "hw_pro", "label": "HWのPRO制作", "description": "PROのH1/Figma（HW）", "category": "ホームワイン"}, {"id": "hw_other", "label": "HWのその他", "description": "搬入などボトル販売/イベント/ツアー ※ホームワイン人件費に含まれない項目", "category": "その他（WT業務）"}, {"id": "hwa_production", "label": "HWAの生産", "description": "伝票作成/詰め替え/梱包", "category": "アカデミー"}, {"id": "hwa_support", "label": "HWAのお問い合わせ", "description": "メール/Lステップ", "category": "アカデミー"}, {"id": "hwa_admin", "label": "HWAの管理", "description": "発送完了メール/売上処理/ec force配送管理/搬入", "category": "アカデミー"}, {"id": "hwa_text", "label": "HWAのテキスト制作", "description": "H1/Figma（HW）、キャンバ、動画", "category": "アカデミー"}, {"id": "hwa_other", "label": "HWAのその他", "description": "搬入などボトル販売/イベント/ツアー ※アカデミー人件費に含まれない項目", "category": "その他（WT業務）"}];
 // 管理者認証情報はスクリプトプロパティで管理する。

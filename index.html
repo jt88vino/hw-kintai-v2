@@ -100,6 +100,7 @@
             <button class="punch-btn small break-start" data-punch="休憩開始" disabled><span class="ico">☕</span><span>休憩 開始</span></button>
             <button class="punch-btn small break-end" data-punch="休憩終了" disabled><span class="ico">⏱</span><span>休憩 終了</span></button>
           </div>
+          <p id="punchState" class="member-help" style="margin:10px 0 0" role="status" aria-live="polite"></p>
         </div>
         <div id="recentCard" class="card relative">
           <div class="sync-cover"><div class="spinner"></div></div>
@@ -154,7 +155,7 @@
 
     const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxpTfsziHbGsM6kOXuPvlVQdnnufZ2RS_reX5NhoE0aOpra-RD5m8RBJXwEwc_34a-C/exec';
     const DEFAULT_USERS = ['田中','長谷川','鈴木','牛嶋','喜多','池亀','松井','出村','橋本','住吉','戸部','村尾','和光'];
-    const CATEGORY_USERS = ['田中','牛嶋','長谷川','住吉'];
+    const CATEGORY_USERS = ['田中','牛嶋','長谷川','住吉','鈴木'];
     const SHIFT_LIMIT_MS = 18*60*60*1000; // a shift is over 18 hours after clock-in; see shiftMinutes_
     const WORK_CATEGORIES = ['アカデミー','ホームワイン','その他（WT業務）'];
     const ALLOCATION_ITEMS = [{"id": "hw_production", "label": "HWの生産", "description": "伝票作成/詰め替え/梱包（WT）", "category": "ホームワイン"}, {"id": "hw_support", "label": "HWのお問い合わせ", "description": "メール/Lステップ（HW）", "category": "ホームワイン"}, {"id": "hw_admin", "label": "HWの管理", "description": "発送完了メール/売上処理/ec force配送管理/搬入（HW）", "category": "ホームワイン"}, {"id": "hw_pro", "label": "HWのPRO制作", "description": "PROのH1/Figma（HW）", "category": "ホームワイン"}, {"id": "hw_other", "label": "HWのその他", "description": "搬入などボトル販売/イベント/ツアー ※ホームワイン人件費に含まれない項目", "category": "その他（WT業務）"}, {"id": "hwa_production", "label": "HWAの生産", "description": "伝票作成/詰め替え/梱包", "category": "アカデミー"}, {"id": "hwa_support", "label": "HWAのお問い合わせ", "description": "メール/Lステップ", "category": "アカデミー"}, {"id": "hwa_admin", "label": "HWAの管理", "description": "発送完了メール/売上処理/ec force配送管理/搬入", "category": "アカデミー"}, {"id": "hwa_text", "label": "HWAのテキスト制作", "description": "H1/Figma（HW）、キャンバ、動画", "category": "アカデミー"}, {"id": "hwa_other", "label": "HWAのその他", "description": "搬入などボトル販売/イベント/ツアー ※アカデミー人件費に含まれない項目", "category": "その他（WT業務）"}];
@@ -702,7 +703,14 @@
       $('workCategory').disabled = state.isPunchSubmitting;
       select.disabled = state.isPunchSubmitting;
       $('transportCard').classList.toggle('hidden', !state.selectedUser);
-      $$('.punch-btn').forEach(btn => btn.disabled = !state.selectedUser || state.isPunchSubmitting || headStuck() || (state.gasUrl && state.readOnlyStartup));
+      const shift = state.selectedUser ? shiftStateOf(state.selectedUser) : null;
+      const allowed = {'出勤': !shift || shift.state==='off', '退勤': !!shift && shift.state!=='off', '休憩開始': !!shift && shift.state==='working', '休憩終了': !!shift && shift.state==='break'};
+      $$('.punch-btn').forEach(btn => btn.disabled = !state.selectedUser || state.isPunchSubmitting || headStuck() || (state.gasUrl && state.readOnlyStartup) || !allowed[btn.dataset.punch]);
+      const stateEl = $('punchState');
+      if(stateEl){
+        const hhmm = d => d ? `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : '';
+        stateEl.textContent = !shift ? '' : shift.state==='off' ? '未出勤です。「出勤」から押してください。' : shift.state==='working' ? `勤務中（${hhmm(shift.shiftStart)} 出勤）。次は「休憩開始」か「退勤」です。出勤は退勤するまで押せません。` : `休憩中（${hhmm(shift.since)} から）。次は「休憩終了」か「退勤」です。`;
+      }
       renderTransportChoice();
       renderRecentLogs();
     }
@@ -903,7 +911,11 @@
       const category = CATEGORY_USERS.includes(state.selectedUser) ? '業務配分' : '';
       const fixedTime=getJSTDateTime();
       // Punches still being confirmed count: the sheet will hold them by the time this one is sent.
-      const history=state.logs.concat(pendingLogs());
+      const history=withPending(state.logs);
+      const shift=shiftStateOf(state.selectedUser).state;
+      if(type==='出勤' && shift!=='off'){ showStatus('すでに出勤しています。退勤してから、次の出勤を押してください。','error'); return; }
+      if(type==='休憩開始' && shift==='break'){ showStatus('休憩中です。「休憩終了」を押してください。','error'); return; }
+      if(type==='休憩終了' && shift==='working'){ showStatus('休憩中ではありません。','error'); return; }
       const minutes=type==='出勤' ? null : shiftMinutes_(history,state.selectedUser,fixedTime.full);
       if(type!=='出勤' && minutes===null){
         // No shift is open within the limit: a clock-in is needed first, whether it was forgotten or is too old.
@@ -1230,7 +1242,7 @@ function validateAllocations_(allocations) {
   }
   return null;
 }
-function shiftMinutes_(logs,name,endTime) {
+function shiftWalk_(logs,name,endTime) {
   // Must match the server: normalizeTimeString pads an hour Sheets rendered as "9:22:45",
   // and a shift older than SHIFT_LIMIT_MS is over (a forgotten clock-out never pairs with the next day).
   const parse=t=>new Date(normalizeTimeString(t).replace(" ","T")+"+09:00").getTime();
@@ -1243,8 +1255,18 @@ function shiftMinutes_(logs,name,endTime) {
     else if(l.type==='休憩終了' && active && !working){start=t;working=true;}
     else if(l.type==='退勤'){active=false;working=false;ms=0;}
   });
-  if(!active || !Number.isFinite(end) || end-shiftStart>SHIFT_LIMIT_MS) return null;
-  return Math.floor((ms+(working?Math.max(0,end-start):0))/60000);
+  if(active && Number.isFinite(end) && end-shiftStart>SHIFT_LIMIT_MS){active=false;working=false;ms=0;}
+  return {active,working,start,ms,end,shiftStart};
+}
+function shiftMinutes_(logs,name,endTime) {
+  const w=shiftWalk_(logs,name,endTime);
+  if(!w.active || !Number.isFinite(w.end)) return null;
+  return Math.floor((w.ms+(w.working?Math.max(0,w.end-w.start):0))/60000);
+}
+// The member's shift right now, counting punches still on their way: 'off' | 'working' | 'break'.
+function shiftStateOf(name){
+  const w=shiftWalk_(withPending(state.logs),name,getJSTDateTime().full);
+  return {state: !w.active ? 'off' : w.working ? 'working' : 'break', since: w.active ? new Date(w.working ? w.start : w.start) : null, shiftStart: w.active ? new Date(w.shiftStart) : null};
 }
 
     if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
