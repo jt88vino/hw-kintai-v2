@@ -75,6 +75,7 @@
               <div id="weatherIconLarge" class="weather-icon-large">☁️</div>
               <div>
                 <div id="weatherConditionLarge" class="weather-condition-large">天気取得中...</div>
+                <div class="weather-location">八王子市の天気</div>
               </div>
             </div>
             <div id="weatherTempLarge" class="weather-temp-large">--°C <span>/</span> --°C</div>
@@ -82,6 +83,7 @@
         </div>
         <div id="noticeCard" class="card notice-card hidden"><h3 class="card-title">📢 お知らせ</h3><div id="noticeList"></div></div>
         <div id="eventCard" class="card notice-card hidden"><button id="eventToggle" class="card-toggle" type="button" aria-expanded="false" aria-controls="eventBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📌 予定・連絡（今日から1週間）</h3><div id="eventSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><div id="eventBody" class="hidden" style="margin-top:8px"><div id="eventList"></div><p class="member-help" style="margin:8px 0 0">登録・変更はシフトタブの日付から。</p></div></div>
+        <div id="todayShiftCard" class="card hidden"><button id="todayShiftToggle" class="card-toggle" type="button" aria-expanded="false" aria-controls="todayShiftBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📅 今日の出勤予定</h3><div id="todayShiftSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><div id="todayShiftBody" class="hidden" style="margin-top:8px"><div id="todayShiftList" class="log-list" style="max-height:none"></div></div></div>
         <div id="statusMessage" class="status"></div>
         <div id="pendingPunchCard" class="card hidden" role="status" aria-live="polite"><p id="pendingPunchText" style="margin:0 0 10px"></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="resumePunch" class="mini-btn" type="button">保存確認・再送</button><button id="discardPunch" class="mini-btn" type="button">取り消す</button></div></div>
         <div class="card">
@@ -120,7 +122,6 @@
           <p id="punchState" class="member-help" style="margin:10px 0 0" role="status" aria-live="polite"></p>
           <p id="punchShiftLine" class="member-help hidden" style="margin:6px 0 0"></p>
         </div>
-        <div id="todayShiftCard" class="card hidden"><button id="todayShiftToggle" class="card-toggle" type="button" aria-expanded="false" aria-controls="todayShiftBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📅 今日の出勤予定</h3><div id="todayShiftSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><div id="todayShiftBody" class="hidden" style="margin-top:8px"><div id="todayShiftList" class="log-list" style="max-height:none"></div></div></div>
         <div id="recentCard" class="card relative">
           <div class="sync-cover"><div class="spinner"></div></div>
           <div class="row" style="margin-bottom:12px"><h3 class="card-title" style="margin:0">⏱ 直近の打刻ログ</h3><button id="refreshBtn" class="mini-btn">更新 ⟳</button></div>

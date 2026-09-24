@@ -237,6 +237,10 @@ function addLog_(sheet, params) {
         return item.label+"（"+a.minutes+"分）"+(a.memo?"："+String(a.memo).split(/[\r\n｜]+/).map(s=>s.trim()).filter(Boolean).join("｜"):"");
       });
       if(memo) details.push(memo);
+      // A second shift on the same day cannot be read from one row of the member sheet,
+      // so the day's working periods go into the memo as well.
+      const segments = daySegments_(sheet, readIndex, name, time);
+      if (segments.length >= 2) details.push("本日の勤務: " + segments.join("、"));
       memo=details.join("｜");
     } else if (allocations.length) return {ok:false,error:"unexpected_allocation",message:"業務配分は対象者の退勤時に入力してください。"};
 
@@ -874,6 +878,22 @@ function validateAllocations_(allocations) {
 // A shift is over 18 hours after its clock-in, whatever comes next: a forgotten clock-out
 // must not pair with the next day's punches, and a later clock-in starts a new shift.
 const SHIFT_LIMIT_MS = 18*60*60*1000;
+// The member's clock-in/clock-out periods of the day the checkout at endTime belongs to, e.g. ["10:00〜14:00","22:00〜23:00"].
+function daySegments_(sheet, index, name, endTime) {
+  const end = indexTime_(endTime), day = end.slice(0, 10), month = deriveMonth_(endTime);
+  const bucket = index.months[month];
+  const rows = bucket ? readIndexedRows_(sheet, bucket.spans.map(s => s.slice())) : [];
+  const logs = rows.filter(l => l.name === name && indexTime_(l.time).slice(0, 10) === day)
+    .sort((a, b) => indexTime_(a.time).localeCompare(indexTime_(b.time)));
+  const segments = []; let start = "";
+  logs.forEach(l => {
+    const t = indexTime_(l.time);
+    if (l.type === "出勤" && !start) start = t;
+    else if (l.type === "退勤" && start) { segments.push(start.slice(11, 16) + "〜" + t.slice(11, 16)); start = ""; }
+  });
+  if (start) segments.push(start.slice(11, 16) + "〜" + end.slice(11, 16));
+  return segments;
+}
 function shiftMinutes_(logs,name,endTime) {
   // Sheets display values drop the leading zero on the hour ("2026-09-18 9:22:45"),
   // which is not valid ISO 8601. indexTime_ pads it before parsing.
