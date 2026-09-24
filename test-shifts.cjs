@@ -66,7 +66,7 @@ cache.set('attendance:recent','{"stale":true}');gas.addNotice_(ss,{text:'再掲'
 const html=fs.readFileSync('index.html','utf8'),script=html.match(/<script>([\s\S]*?)<\/script>/)[1];const nodes=new Map();
 function el(id){if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',innerHTML:'',disabled:false,querySelectorAll:()=>[],classList:{add(){},remove(){},toggle(){}}});return nodes.get(id);}
 const client={Date,URLSearchParams,Set,Map,console,localStorage:{getItem(){return null},setItem(){}},window:{addEventListener(){},crypto},document:{getElementById:el,querySelectorAll:()=>[]},setTimeout(){return 1},clearTimeout(){}};vm.createContext(client);
-vm.runInContext(script.replace("if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();",`window.test={state,monthGridDays,chipText,sortEntries,nextShiftFor,todayShiftFor,shiftEntriesFor,personColor,JP_HOLIDAYS,queueShiftOp,runShiftOps,reconcileShiftOps,applyGasReadData,renderNotices,setSend:fn=>{adminRequest=fn;},prepare:()=>{renderAll=()=>{};renderPunch=()=>{};renderShift=()=>{};showStatus=()=>{};getJSTDateTime=()=>({full:'2026-09-24 10:00:00',monthOnly:'2026-09',display:'10:00'});}};`),client);
+vm.runInContext(script.replace("if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();",`window.test={state,monthGridDays,chipText,sortEntries,nextShiftFor,todayShiftFor,shiftEntriesFor,personColor,JP_HOLIDAYS,queueShiftOp,runShiftOps,reconcileShiftOps,applyGasReadData,renderNotices,renderTodayShifts,setSend:fn=>{adminRequest=fn;},prepare:()=>{renderAll=()=>{};renderPunch=()=>{};renderShift=()=>{};showStatus=()=>{};getJSTDateTime=()=>({full:'2026-09-24 10:00:00',monthOnly:'2026-09',display:'10:00'});}};`),client);
 const api=client.window.test;api.prepare();
 api.applyGasReadData({ok:true,logs:[],notices:[{id:'n1',text:'掲示',by:'管理者',at:'2026-09-24 22:00:00'}]});assert.equal(api.state.notices.length,1);api.renderNotices();assert.match(el('noticeList').innerHTML,/掲示/);assert.match(el('noticeAdminList').innerHTML,/削除/);
 let days=api.monthGridDays('2026-10');assert.equal(days[0],'2026-09-28');assert.equal(days[days.length-1],'2026-11-01');assert.equal(days.length,35);
@@ -77,7 +77,7 @@ assert.deepEqual(api.personColor('橋本'),api.personColor('橋本'));
 const e=(id,kind,name,start,from,to,extra)=>Object.assign({id,kind,name,start,end:start,from:from||'',to:to||'',label:'',memo:'',by:name,at:''},extra||{});
 api.state.shiftData['2026-09']={entries:[e('a','シフト','橋本','2026-09-24','09:30','15:00'),e('b','シフト','橋本','2026-09-30','10:00','15:00'),e('c','業務','','2026-09-28',null,null,{end:'2026-09-30',label:'小瓶搬入',by:'長谷川'})],changes:[]};
 api.state.shiftData['2026-10']={entries:[e('d','シフト','橋本','2026-10-02','09:00','14:00')],changes:[]};
-assert.equal(api.todayShiftFor('橋本').id,'a');assert.equal(api.todayShiftFor('松井'),null);
+assert.equal(api.todayShiftFor('橋本').id,'a');api.state.users=['橋本'];api.renderTodayShifts();assert.match(el('todayShiftList').innerHTML,/09:30-15:00/);assert.match(el('todayShiftList').innerHTML,/未出勤/);assert.equal(api.todayShiftFor('松井'),null);
 assert.equal(api.nextShiftFor('橋本','2026-09-25').id,'b');assert.equal(api.nextShiftFor('橋本','2026-10-01').id,'d');
 assert.deepEqual(api.sortEntries(api.shiftEntriesFor('2026-09').filter(x=>x.start<='2026-09-30'&&x.end>='2026-09-30')).map(x=>x.id),['c','b']);
 (async()=>{

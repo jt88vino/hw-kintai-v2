@@ -392,7 +392,7 @@ function getReadIndex_(sheet) {
   const lastRow=sheet?sheet.getLastRow():0;
   let index=loadReadIndex_();
   // A rebuild also reconciles changes made by external APIs (which do not fire edit triggers).
-  if(!index || index.version!==1 || index.lastRow>lastRow || Date.now()-index.builtAt>21600000) index=null;
+  if(!index || index.version!==1 || index.lastRow>lastRow || Date.now()-index.builtAt>86400000) index=null;
   if(index && index.lastRow<lastRow) {
     const rows=sheet.getRange(index.lastRow+1,1,lastRow-index.lastRow,MASTER_HEADERS.length).getDisplayValues();
     if(rows.some(r=>r[3] && indexTime_(r[3])<index.maxTime)) index=null;
@@ -457,7 +457,8 @@ function readData_(ss, sheet, params) {
       serverTime:Utilities.formatDate(new Date(),'Asia/Tokyo','yyyy-MM-dd HH:mm:ss')};
     if(scope==='recent') {
       const value=JSON.stringify(result);
-      if(value.length<25000) CacheService.getScriptCache().put('attendance:recent',value,15);
+      // Every write clears this cache, so it can live long enough for the morning's first open to hit it.
+      if(value.length<90000) CacheService.getScriptCache().put('attendance:recent',value,120);
     }
     return result;
   } finally {lock.releaseLock();}
