@@ -48,6 +48,8 @@ assert.equal(JSON.parse(gas.handleRequest_({parameter:{action:'shiftAdd',id,kind
 assert.equal(JSON.parse(gas.handleRequest_({parameter:{action:'shiftAdd',receipt,id,kind:'シフト',name:'鈴木',start:'2026-10-13',from:'09:00',to:'14:00',by:'鈴木'}},true).getContent()).ok,true);
 assert.equal(JSON.parse(gas.handleRequest_({parameter:{action:'adminResult',receipt}},false).getContent()).id,id);
 assert.equal(JSON.parse(gas.handleRequest_({parameter:{action:'shift',month:'2026-10'}},false).getContent()).entries.length,4);
+// A day event belongs to everyone: anyone may remove it; a member's shift still needs the member or the admin.
+{ const ev=gas.readShifts_(ss,{month:'2026-10',fresh:'1'}).entries.find(e=>e.kind==='業務'); assert.equal(gas.deleteShift_(ss,{id:ev.id,by:'松井'}).ok,true); }
 // ---- お知らせ: 管理者認証か NOTICE_TOKEN が要る。期間外・削除済みは配信されない ----
 assert.equal(gas.addNotice_(ss,{text:'こんにちは'}).error,'unauthorized');
 props.set('NOTICE_TOKEN','abcdefghijklmnop123456');

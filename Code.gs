@@ -1014,8 +1014,9 @@ function deleteShift_(ss, params) {
     const e = shiftEntry_(sheet.getRange(row, 1, 1, SHIFT_HEADERS.length).getDisplayValues()[0], row);
     if (e.deleted) return {ok:true, action:"shiftDelete", id:id, duplicate:true};
     const admin = validateAdmin_(params, "shiftDelete") === null;
-    // Anyone may remove what they entered or what carries their own name; the rest needs the admin.
-    if (!admin && !(by && (e.name === by || e.by === by))) return {ok:false, action:"shiftDelete", error:"forbidden", message:"自分の予定以外は管理者だけが削除できます。"};
+    // Day events are shared information anyone may change. A member's own entry may be removed by that
+    // member or whoever entered it; someone else's needs the admin.
+    if (!admin && e.kind !== "業務" && !(by && (e.name === by || e.by === by))) return {ok:false, action:"shiftDelete", error:"forbidden", message:"他の人のシフトは本人か管理者だけが変更できます。"};
     const now = Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy-MM-dd HH:mm:ss");
     sheet.getRange(row, 12, 1, 3).setValues([["削除", by || "管理者", now]]);
     SpreadsheetApp.flush();
