@@ -31,6 +31,19 @@
     .admin-banner{background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:15px;padding:12px;display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:900}.notice{font-size:11px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:13px;padding:11px;line-height:1.6}.settings-list{border:1px solid var(--line);border-radius:14px;overflow:auto;max-height:350px}.settings-row{padding:11px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #f1f5f9}.settings-row:last-child{border-bottom:0}.settings-user-main{min-width:0}.settings-user-main b{display:block;word-break:break-word}.settings-user-meta{display:flex;align-items:center;gap:7px;margin-top:5px}.member-add-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:12px}.member-add-btn{background:var(--indigo);color:#fff;border-radius:13px;padding:0 16px;font-size:12px;font-weight:950;white-space:nowrap}.member-remove-btn{background:#fff1f2;color:#be123c;border:1px solid #fecdd3;border-radius:9px;padding:7px 9px;font-size:11px;font-weight:950;white-space:nowrap}.member-remove-btn:hover{background:#ffe4e6}.member-help{font-size:10px;color:#64748b;line-height:1.55;margin:8px 0 0}.yen{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#f1f5f9;border-radius:8px;padding:5px 8px;font-size:12px;font-weight:950}.debug{font-size:11px;color:#64748b;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:10px;line-height:1.55;word-break:break-all;display:none}.debug.show{display:block}
     .modal{position:fixed;inset:0;background:rgba(15,23,42,.62);backdrop-filter:blur(3px);z-index:100;display:none;align-items:center;justify-content:center;padding:18px}.modal.show{display:flex}.modal-box{background:#fff;border:1px solid var(--line);border-radius:26px;box-shadow:0 25px 50px rgba(15,23,42,.25);padding:20px;width:100%;max-width:380px}.modal-head{display:flex;align-items:center;gap:10px;border-radius:16px;padding:12px;margin-bottom:14px}.modal-head.info{background:#eef2ff;color:#3730a3}.modal-head.warn{background:#fff1f2;color:#be123c}.modal-head h4{margin:0;color:#1e293b;font-size:14px;font-weight:950}.confirm-box{background:#f8fafc;border:1px solid #eef2f7;border-radius:15px;padding:12px;font-size:13px;display:flex;flex-direction:column;gap:8px;margin-bottom:12px}.confirm-box span:last-child{font-weight:950}.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.btn{border-radius:13px;padding:12px 10px;font-size:13px;font-weight:950}.btn-gray{background:#f1f5f9;color:#475569}.btn-indigo{background:var(--indigo);color:#fff}.btn-rose{background:var(--rose);color:#fff}.err-text{font-size:11px;color:var(--rose);font-weight:800;text-align:center;margin-top:6px}.footer{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fff;border-top:1px solid var(--line);box-shadow:0 -8px 20px rgba(15,23,42,.06)}.footer-inner{max-width:480px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;padding:8px}.nav-btn{background:#fff;color:#94a3b8;border-radius:14px;padding:8px 3px;font-size:10px;font-weight:900;display:flex;flex-direction:column;align-items:center;gap:4px}.nav-btn.active{color:var(--indigo);background:#eef2ff}.nav-btn .nicon{font-size:19px}.startup{max-width:480px;margin:18px auto;background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;color:#475569;font-size:13px;line-height:1.6}.startup b{color:#1e293b}
     .modal-box{max-height:92vh;overflow-y:auto}.allocation-item{border:1px solid #dbe3ef;border-radius:12px;padding:12px;margin:12px 0;background:#fff}.allocation-item h4{margin:0 0 4px}.allocation-item p{font-size:12px;line-height:1.6;color:#64748b}.allocation-time{display:flex;gap:12px;margin:8px 0}.allocation-time label{flex:1}.allocation-item input,.allocation-item textarea{box-sizing:border-box;width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px}.allocation-total{position:sticky;top:0;background:#eef2ff;padding:12px;font-weight:700;border-radius:8px;z-index:2}
+    .footer-inner{grid-template-columns:repeat(4,1fr)}
+    .shift-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+    .shift-dow{font-size:10px;font-weight:900;color:#94a3b8;text-align:center;padding:2px 0}.shift-dow.sat{color:#2563eb}.shift-dow.sun{color:#e11d48}
+    .shift-day{min-height:66px;background:#f8fafc;border:1px solid #eef2f7;border-radius:8px;padding:2px;display:flex;flex-direction:column;gap:2px;overflow:hidden;cursor:pointer}
+    .shift-day.other{opacity:.45}.shift-day.today{box-shadow:inset 0 0 0 2px var(--indigo)}.shift-day.selected{background:#eef2ff}
+    .shift-date{font-size:10px;font-weight:900;color:#475569;text-align:right;padding-right:2px}.shift-day.sat .shift-date{color:#2563eb}.shift-day.sun .shift-date,.shift-day.holiday .shift-date{color:#e11d48}
+    .shift-chip{font-size:9px;font-weight:900;line-height:1.25;padding:2px 3px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#e2e8f0;color:#1f2937}
+    .shift-chip.task{background:#5eead4;color:#0f3d3a}.shift-chip.holiday{background:#fecaca;color:#991b1b}.shift-chip.off{background:#e5e7eb;color:#4b5563}
+    .shift-chip.mine{outline:2px solid #4f46e5;outline-offset:-2px}.shift-chip.pending{opacity:.55;border:1px dashed #64748b}
+    .shift-kinds{grid-template-columns:repeat(3,1fr)}.shift-form label{display:block;font-size:11px;font-weight:900;color:#64748b;margin-bottom:4px}
+    .shift-form input,.shift-form select{box-sizing:border-box;width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px}
+    .tag.off{background:#e5e7eb;color:#4b5563}
+    .notice-card{background:#fffbeb;border-color:#fcd34d}.notice-item{padding:8px 0;border-bottom:1px dashed #fde68a;font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-word}.notice-item:last-child{border-bottom:0}.notice-meta{font-size:10px;color:#92400e;font-weight:800;margin-top:2px}
 </style>
 </head>
 <body>
@@ -65,6 +78,7 @@
             <div id="weatherTempLarge" class="weather-temp-large">--°C <span>/</span> --°C</div>
           </div>
         </div>
+        <div id="noticeCard" class="card notice-card hidden"><h3 class="card-title">📢 お知らせ</h3><div id="noticeList"></div></div>
         <div id="statusMessage" class="status"></div>
         <div id="pendingPunchCard" class="card hidden" role="status" aria-live="polite"><p id="pendingPunchText" style="margin:0 0 10px"></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="resumePunch" class="mini-btn" type="button">保存確認・再送</button><button id="discardPunch" class="mini-btn" type="button">取り消す</button></div></div>
         <div class="card">
@@ -101,6 +115,7 @@
             <button class="punch-btn small break-end" data-punch="休憩終了" disabled><span class="ico">⏱</span><span>休憩 終了</span></button>
           </div>
           <p id="punchState" class="member-help" style="margin:10px 0 0" role="status" aria-live="polite"></p>
+          <p id="punchShiftLine" class="member-help hidden" style="margin:6px 0 0"></p>
         </div>
         <div id="recentCard" class="card relative">
           <div class="sync-cover"><div class="spinner"></div></div>
@@ -109,8 +124,23 @@
         </div>
       </section>
 
+      <section id="shiftTab" class="tab stack fade hidden">
+        <div id="shiftStatus" class="status"></div>
+        <div class="card">
+          <div class="row" style="align-items:center;margin-bottom:8px"><button id="shiftPrev" class="mini-btn" type="button" aria-label="前の月">‹ 前月</button><h3 id="shiftTitle" class="card-title" style="margin:0"></h3><button id="shiftNext" class="mini-btn" type="button" aria-label="次の月">翌月 ›</button></div>
+          <p id="shiftNextWork" class="member-help" style="margin:0 0 8px"></p>
+          <div id="shiftGrid" class="shift-grid"></div>
+          <p class="member-help" style="margin:8px 0 0">日付をタップすると、その日の予定と追加ボタンが出ます。</p>
+        </div>
+        <div id="shiftDayCard" class="card hidden">
+          <div class="row" style="margin-bottom:10px;align-items:center"><h3 id="shiftDayTitle" class="card-title" style="margin:0"></h3><button id="shiftAddBtn" class="mini-btn" type="button">＋ 追加</button></div>
+          <div id="shiftDayList" class="log-list" style="max-height:none"></div>
+        </div>
+        <div class="card"><h3 class="card-title">🔔 新着（最近の変更）</h3><div id="shiftChanges" class="log-list"></div></div>
+      </section>
       <section id="dashboardTab" class="tab stack fade hidden">
         <div id="dashboardStatus" class="status"></div>
+        <div id="noticeCardDash" class="card notice-card hidden"><h3 class="card-title">📢 お知らせ</h3><div id="noticeListDash"></div></div>
         <div class="card row"><span style="font-size:13px;font-weight:900;color:#475569">表示対象月を選択:</span><select id="selectedMonth" class="month-select"></select></div>
         <div id="membersCard" class="card relative"><div class="sync-cover"><div class="spinner"></div></div><h3 class="card-title">ステータス</h3><div id="memberStatus" class="member-status"></div></div>
         <div id="statsCard" class="card relative"><div class="sync-cover"><div class="spinner"></div></div><div class="row" style="margin-bottom:12px"><h3 class="card-title" style="margin:0">📅 月 勤務＆交通費集計</h3><span style="font-size:10px;color:#64748b;font-weight:900;background:#f1f5f9;border-radius:9px;padding:6px 8px">目標 80H想定</span></div><div id="monthlyStats" class="stats-list"></div></div>
@@ -135,15 +165,35 @@
             <p class="member-help">名簿はスプレッドシートと同期され、すべての端末に反映されます。削除した方の個別勤務表と過去ログは、復旧できる状態で保持されます。</p>
             <div id="settingsUsers" class="settings-list" style="margin-top:12px"></div>
           </div>
+          <div class="card"><h3 class="card-title">📢 お知らせの掲載</h3>
+            <div class="stack shift-form">
+              <div><label for="noticeText">本文</label><textarea id="noticeText" class="textarea" maxlength="500" placeholder="例：10月からシフトはこのアプリで管理します。"></textarea></div>
+              <div class="allocation-time"><label style="flex:1">掲載開始（任意）<input id="noticeFrom" type="date"></label><label style="flex:1">掲載終了（任意）<input id="noticeUntil" type="date"></label></div>
+              <button id="noticePost" class="btn btn-indigo" type="button">掲載する</button>
+              <p class="member-help">打刻画面とダッシュボードの一番上に出ます。期間を空にすると削除するまで表示されます。</p>
+              <div id="noticeAdminList" class="settings-list"></div>
+            </div>
+          </div>
           <div class="card"><h3 class="card-title">🗄 スプレッドシート連携（GAS）</h3><input id="gasUrl" type="url"><p style="font-size:11px;color:#64748b;line-height:1.6;margin:10px 0 0">この画面を開く・更新するだけではスプレッドシートの既存データは変更されません。書き込みが発生するのは、打刻・打刻削除・名簿の追加・名簿の削除を実行した時だけです。</p></div>
           <div class="card"><h3 class="card-title">🛟 起動診断</h3><button id="showDebugBtn" class="mini-btn" type="button">診断情報を表示</button><div id="debugBox" class="debug"></div></div>
         </div>
       </section>
     </main>
 
-    <footer class="footer"><div class="footer-inner"><button class="nav-btn active" data-tab="punch"><span class="nicon">⏱</span><span>打刻する</span></button><button class="nav-btn" data-tab="dashboard"><span class="nicon">👥</span><span>ダッシュボード</span></button><button class="nav-btn" data-tab="settings"><span class="nicon">⚙️</span><span>名簿・連携設定</span></button></div></footer>
+    <footer class="footer"><div class="footer-inner"><button class="nav-btn active" data-tab="punch"><span class="nicon">⏱</span><span>打刻する</span></button><button class="nav-btn" data-tab="shift"><span class="nicon">📅</span><span>シフト</span></button><button class="nav-btn" data-tab="dashboard"><span class="nicon">👥</span><span>ダッシュボード</span></button><button class="nav-btn" data-tab="settings"><span class="nicon">⚙️</span><span>名簿・連携設定</span></button></div></footer>
   </div>
 
+  <div id="shiftModal" class="modal"><div class="modal-box shift-form"><div class="modal-head info"><span style="font-size:22px">📅</span><div><h4 id="shiftModalTitle">予定を追加</h4><div style="font-size:11px;color:#64748b;font-weight:800">全員の画面に反映されます</div></div></div>
+    <div class="stack" style="margin-top:12px">
+      <div><label>種類</label><div id="shiftKindChoices" class="choice-grid shift-kinds"></div></div>
+      <div id="shiftNameRow"><label for="shiftName">名前</label><select id="shiftName"></select></div>
+      <div class="allocation-time"><label style="flex:1">開始日<input id="shiftStart" type="date"></label><label id="shiftEndWrap" style="flex:1">終了日<input id="shiftEnd" type="date"></label></div>
+      <div id="shiftTimeRow"><label>時間</label><div id="shiftPatterns" class="choice-grid shift-kinds"></div><div class="allocation-time" style="margin-top:6px"><label style="flex:1">開始<input id="shiftFrom" type="time"></label><label style="flex:1">終了<input id="shiftTo" type="time"></label></div></div>
+      <div id="shiftLabelRow"><label for="shiftLabel">内容</label><input id="shiftLabel" type="text" maxlength="60" placeholder="例：E・F瓶詰め"></div>
+      <div><label for="shiftMemo">メモ（任意）</label><input id="shiftMemo" type="text" maxlength="200"></div>
+      <div id="shiftModalError" class="err-text hidden"></div>
+    </div>
+    <div class="modal-actions"><button id="shiftCancel" class="btn btn-gray" type="button">キャンセル</button><button id="shiftSave" class="btn btn-indigo" type="button">登録する</button></div></div></div>
   <div id="confirmModal" class="modal"><div class="modal-box"><div class="modal-head info"><span style="font-size:22px">⏱</span><div><h4>打刻のご確認</h4><div style="font-size:11px;color:#64748b;font-weight:800">内容を今一度ご確認ください</div></div></div><div id="confirmDetails" class="confirm-box"></div><div class="modal-actions"><button id="cancelPunch" class="btn btn-gray">キャンセル</button><button id="executePunch" class="btn btn-indigo">はい、打刻する</button></div></div></div>
   <div id="deleteModal" class="modal"><div class="modal-box"><div class="modal-head warn"><span style="font-size:22px">⚠️</span><div><h4>打刻取り消し確認</h4></div></div><div id="deleteDetails" class="confirm-box"></div><div id="deletePasswordBox"><label for="deletePassword" style="font-size:11px">管理者パスワードを入力して削除を実行</label><input id="deletePassword" type="password" placeholder="パスワード" style="text-align:center"></div><div id="deleteError" class="err-text hidden"></div><div id="deleteProgress" role="status" aria-live="polite" style="font-size:12px;line-height:1.6;margin-top:10px"></div><div class="modal-actions"><button id="cancelDelete" class="btn btn-gray">やめる</button><button id="executeDelete" class="btn btn-rose">削除を実行する</button></div></div></div>
 
@@ -196,6 +246,13 @@
       confirmPunch: null,
       pendingPunch: restorePendingRecord(),
       punchQueue: restorePunchQueue(),
+      shiftMonth: getCurrentMonth(),
+      shiftSelectedDay: '',
+      shiftData: {},
+      shiftOps: restoreShiftOps(),
+      shiftEditing: null,
+      shiftKind: 'シフト',
+      notices: sanitizeNotices(safeGet('attendance_notices', [])),
       deleteTargetLog: null,
       deleteRecent: false,
       isDeleteSubmitting: false,
@@ -311,7 +368,7 @@
       box.className = 'status error show';
     }
     function showStatus(text, type='info'){
-      const id = state.activeTab === 'settings' ? 'settingsStatus' : state.activeTab === 'dashboard' ? 'dashboardStatus' : 'statusMessage';
+      const id = state.activeTab === 'settings' ? 'settingsStatus' : state.activeTab === 'dashboard' ? 'dashboardStatus' : state.activeTab === 'shift' ? 'shiftStatus' : 'statusMessage';
       const box = $(id) || $('statusMessage');
       box.textContent = text;
       box.className = 'status ' + type + ' show';
@@ -332,6 +389,8 @@
         fetchWeather();
         syncLogsFromGAS('startup');
         drainPunchQueue();
+        loadShiftMonth(getCurrentMonth(), true);
+        runShiftOps();
         // 別端末で名簿が変わった場合も、開きっぱなしの画面へ自動反映する。
         setInterval(()=>{
           if(!document.hidden && !state.isSyncing && !state.isPunchSubmitting) syncLogsFromGAS('auto');
@@ -357,6 +416,12 @@
       $('executePunch').addEventListener('click', executePunch);
       $('resumePunch').addEventListener('click', resumePendingPunch);
       $('discardPunch').addEventListener('click', discardPendingPunch);
+      $('shiftPrev').addEventListener('click', ()=>{ state.shiftMonth=addMonths(state.shiftMonth,-1); state.shiftSelectedDay=''; renderShift(); loadShiftMonth(state.shiftMonth); });
+      $('shiftNext').addEventListener('click', ()=>{ state.shiftMonth=addMonths(state.shiftMonth,1); state.shiftSelectedDay=''; renderShift(); loadShiftMonth(state.shiftMonth); });
+      $('shiftAddBtn').addEventListener('click', ()=>openShiftModal(state.shiftSelectedDay||todayYmd(), null));
+      $('shiftCancel').addEventListener('click', closeShiftModal);
+      $('shiftSave').addEventListener('click', saveShiftEntry);
+      $('noticePost').addEventListener('click', postNotice);
       $('cancelDelete').addEventListener('click', closeDeleteModal);
       $('executeDelete').addEventListener('click', confirmDeleteLog);
       $('deletePassword').addEventListener('input', ()=> $('deleteError').classList.add('hidden'));
@@ -468,6 +533,7 @@
           if(!state.users.includes(state.selectedUser)) state.selectedUser = '';
         }
       }
+      if(Array.isArray(body.notices)){ state.notices = sanitizeNotices(body.notices); safeSet('attendance_notices', state.notices); }
       if(body.transportationCosts && typeof body.transportationCosts === 'object'){
         state.transportationCosts = body.transportationCosts;
         safeSet('attendance_transportation', body.transportationCosts);
@@ -690,7 +756,7 @@
       return adminRequest(Object.assign({},params,{adminToken:state.adminToken}));
     }
 
-    function renderAll(){ renderPunch(); if(state.activeTab==='dashboard') renderDashboard(); renderSettings(); }
+    function renderAll(){ renderNotices(); renderPunch(); if(state.activeTab==='dashboard') renderDashboard(); renderSettings(); }
     function renderPunch(){
       renderPendingPunch();
       const select = $('selectedUser');
@@ -710,6 +776,13 @@
       if(stateEl){
         const hhmm = d => d ? `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : '';
         stateEl.textContent = !shift ? '' : shift.state==='off' ? '未出勤です。「出勤」から押してください。' : shift.state==='working' ? `勤務中（${hhmm(shift.shiftStart)} 出勤）。次は「休憩開始」か「退勤」です。出勤は退勤するまで押せません。` : `休憩中（${hhmm(shift.since)} から）。次は「休憩終了」か「退勤」です。`;
+      }
+      const shiftLine = $('punchShiftLine');
+      if(shiftLine){
+        const ts = state.selectedUser ? todayShiftFor(state.selectedUser) : null;
+        let text = ts ? `本日のシフト: ${ts.from}-${ts.to}` : '';
+        if(ts && shift && shift.state!=='off' && ts.to){ const over = clockMinutes(getJSTDateTime().display) - clockMinutes(ts.to); if(over>=60) text += ` ／ 終了から${Math.floor(over/60)}時間${over%60}分経っています。退勤を忘れていませんか？`; }
+        shiftLine.textContent = text; shiftLine.classList.toggle('hidden', !text);
       }
       renderTransportChoice();
       renderRecentLogs();
@@ -746,6 +819,7 @@
       $(tab+'Tab').classList.remove('hidden');
       $$('.nav-btn').forEach(btn=>btn.classList.toggle('active', btn.dataset.tab === tab));
       if(tab === 'dashboard'){ renderDashboard(); loadSelectedMonth(); }
+      else if(tab === 'shift'){ if(!state.shiftSelectedDay) state.shiftSelectedDay=todayYmd(); renderShift(); loadShiftMonth(state.shiftMonth); }
       else if(tab === 'punch') syncLogsFromGAS('tab'); else renderSettings();
     }
 
@@ -806,7 +880,7 @@
       $('selectedMonth').innerHTML = months.map(m=>`<option value="${esc(m)}">${esc(m.replace('-','年'))}月</option>`).join('');
       $('selectedMonth').value = state.selectedMonth;
       const title = $('statsCard').querySelector('.card-title'); if(title) title.textContent = `📅 ${state.selectedMonth.replace('-','年')}月 勤務＆交通費集計`;
-      $('memberStatus').innerHTML = state.users.map(name=>{ const c=getUserCurrentStatus(name); return `<div class="member-row"><div><b>${esc(name)} さん</b><small>最終打刻: ${c.time !== '-' ? `${esc(c.time)} (${esc(c.rawType)})` : '打刻なし'}</small></div><span class="status-pill ${c.cls}">${esc(c.status)}</span></div>`; }).join('');
+      $('memberStatus').innerHTML = state.users.map(name=>{ const c=getUserCurrentStatus(name); const ts=todayShiftFor(name); return `<div class="member-row"><div><b>${esc(name)} さん</b><small>最終打刻: ${c.time !== '-' ? `${esc(c.time)} (${esc(c.rawType)})` : '打刻なし'}${ts?` ／ 本日シフト ${esc(ts.from)}-${esc(ts.to)}`:''}</small></div><span class="status-pill ${c.cls}">${esc(c.status)}</span></div>`; }).join('');
       const haveMonth=Array.isArray(state.monthLogs) && state.loadedMonth===state.selectedMonth;
       if(state.gasUrl && !haveMonth){
         const message=state.monthLoading?'対象月の勤怠を読み込み中…':state.monthError?'対象月の取得に失敗しました。再同期してください。':'対象月を選択すると勤怠を読み込みます。';
@@ -978,7 +1052,8 @@
       if(headSend) return headSend;
       const pending=state.pendingPunch;
       if(!pending) return Promise.resolve();
-      headSend=(async()=>{
+      // Start the body on a microtask so this assignment always precedes the finally that clears it.
+      headSend=Promise.resolve().then(async()=>{
         try{
           pending.sent=true; pending.error=''; pending.rejected=false; persistPendingPunch(); renderAll();
           const log=pending.log;
@@ -995,7 +1070,7 @@
           state.lastSyncError=pending.error;
           showStatus(pending.rejected ? `${pending.log.name}さんの${pending.log.type}を保存できませんでした: ${pending.error}` : '保存を確認できませんでした。「保存確認・再送」で続けられます。','error');
         }finally{ headSend=null; renderAll(); drainPunchQueue(); }
-      })();
+      });
       return headSend;
     }
     function drainPunchQueue(){
@@ -1014,6 +1089,230 @@
       if(!ok) return;
       clearPendingPunch(); state.confirmPunch=null; $('confirmModal').classList.remove('show');
       showStatus('打刻を取り消しました。','info'); renderAll(); drainPunchQueue();
+    }
+    // ===== お知らせ =====
+    function sanitizeNotices(arr){ return (Array.isArray(arr)?arr:[]).filter(n=>n && n.id && n.text).map(n=>({id:String(n.id),text:String(n.text),from:String(n.from||''),until:String(n.until||''),by:String(n.by||''),at:String(n.at||'')})); }
+    function renderNotices(){
+      const html = state.notices.map(n=>`<div class="notice-item">${esc(n.text)}<div class="notice-meta">${esc(n.by||'管理者')} ・ ${esc(shortWhen(n.at))}${n.until?` ・ ${esc(fmtDay(n.until))}まで`:''}</div></div>`).join('');
+      [['noticeCard','noticeList'],['noticeCardDash','noticeListDash']].forEach(([card,list])=>{ const c=$(card), l=$(list); if(!c||!l) return; c.classList.toggle('hidden',!state.notices.length); l.innerHTML=html; });
+      const admin=$('noticeAdminList');
+      if(admin){
+        admin.innerHTML = state.notices.length ? state.notices.map(n=>`<div class="member-row"><div style="min-width:0"><div style="font-size:12px;white-space:pre-wrap;word-break:break-word">${esc(n.text)}</div><small>${esc(shortWhen(n.at))}${n.until?` ・ ${esc(fmtDay(n.until))}まで`:''}</small></div><button class="mini-btn" type="button" data-notice-delete="${esc(n.id)}">削除</button></div>`).join('') : '<div class="empty">掲載中のお知らせはありません。</div>';
+        admin.querySelectorAll('[data-notice-delete]').forEach(b=>b.addEventListener('click',()=>deleteNotice(b.dataset.noticeDelete)));
+      }
+    }
+    async function postNotice(){
+      const text=$('noticeText').value.trim(), from=$('noticeFrom').value, until=$('noticeUntil').value;
+      if(!text){ showStatus('本文を入力してください。','error'); return; }
+      if(from && until && until<from){ showStatus('掲載終了は掲載開始以降にしてください。','error'); return; }
+      const btn=$('noticePost'); btn.disabled=true;
+      try{
+        const result=await sendGASAdminAction({action:'noticeAdd',id:window.crypto.randomUUID(),text:text,from:from,until:until,by:'管理者'});
+        if(!result || result.ok!==true) throw new Error('掲載結果を確認できませんでした。');
+        if(result.notice) { state.notices=sanitizeNotices([result.notice].concat(state.notices)); safeSet('attendance_notices',state.notices); }
+        $('noticeText').value=''; $('noticeFrom').value=''; $('noticeUntil').value='';
+        renderNotices(); showStatus('お知らせを掲載しました。','success');
+      }catch(err){ showStatus(err && err.message ? err.message : String(err),'error'); }
+      finally{ btn.disabled=false; }
+    }
+    async function deleteNotice(id){
+      const n=state.notices.find(x=>x.id===id); if(!n) return;
+      const ok=typeof window.confirm==='function' ? window.confirm('このお知らせを削除します。よろしいですか？') : true; if(!ok) return;
+      try{
+        const result=await sendGASAdminAction({action:'noticeDelete',id:id});
+        if(!result || result.ok!==true) throw new Error('削除結果を確認できませんでした。');
+        state.notices=state.notices.filter(x=>x.id!==id); safeSet('attendance_notices',state.notices); renderNotices(); showStatus('お知らせを削除しました。','success');
+      }catch(err){ showStatus(err && err.message ? err.message : String(err),'error'); }
+    }
+    // ===== シフト（予定表）: TimeTree の共有カレンダーの置き換え =====
+    const SHIFT_KINDS = ['シフト','業務','出勤','休み','有給','振休'];
+    const SHIFT_PATTERNS = [['09:00','14:00'],['09:30','15:00'],['10:00','15:00']];
+    // 祝日は年ごとに追記する（内閣府の発表に合わせる）
+    const JP_HOLIDAYS = {'2026-01-01':'元日','2026-01-12':'成人の日','2026-02-11':'建国記念の日','2026-02-23':'天皇誕生日','2026-03-20':'春分の日','2026-04-29':'昭和の日','2026-05-03':'憲法記念日','2026-05-04':'みどりの日','2026-05-05':'こどもの日','2026-05-06':'振替休日','2026-07-20':'海の日','2026-08-11':'山の日','2026-09-21':'敬老の日','2026-09-22':'国民の休日','2026-09-23':'秋分の日','2026-10-12':'スポーツの日','2026-11-03':'文化の日','2026-11-23':'勤労感謝の日',
+      '2027-01-01':'元日','2027-01-11':'成人の日','2027-02-11':'建国記念の日','2027-02-23':'天皇誕生日','2027-03-21':'春分の日','2027-03-22':'振替休日','2027-04-29':'昭和の日','2027-05-03':'憲法記念日','2027-05-04':'みどりの日','2027-05-05':'こどもの日','2027-07-19':'海の日','2027-08-11':'山の日','2027-09-20':'敬老の日','2027-09-23':'秋分の日','2027-10-11':'スポーツの日','2027-11-03':'文化の日','2027-11-23':'勤労感謝の日'};
+    const PERSON_COLORS = [['#ede9fe','#5b21b6'],['#cffafe','#155e75'],['#d1fae5','#065f46'],['#ffedd5','#9a3412'],['#fee2e2','#991b1b'],['#dbeafe','#1e40af'],['#fce7f3','#9d174d'],['#fef3c7','#92400e'],['#e0e7ff','#3730a3'],['#ccfbf1','#115e59'],['#f3e8ff','#6b21a8'],['#ecfccb','#3f6212']];
+    function personColor(name){ let h=0; for(const ch of String(name||'')) h=(h*31+ch.charCodeAt(0))>>>0; return PERSON_COLORS[h%PERSON_COLORS.length]; }
+    function ymd(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+    function todayYmd(){ return getJSTDateTime().full.slice(0,10); }
+    function addMonths(month, n){ const [y,m]=month.split('-').map(Number); const d=new Date(y, m-1+n, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+    function fmtDay(day){ const d=new Date(day.replace(/-/g,'/')); return isNaN(d) ? day : `${d.getMonth()+1}/${d.getDate()}(${['日','月','火','水','木','金','土'][d.getDay()]})`; }
+    function shortWhen(t){ const s=normalizeTimeString(t); return s ? `${Number(s.slice(5,7))}/${Number(s.slice(8,10))} ${s.slice(11,16)}` : ''; }
+    function clockMinutes(hhmm){ const m=String(hhmm||'').match(/(\d{1,2}):(\d{2})/); return m ? Number(m[1])*60+Number(m[2]) : 0; }
+    // Monday-first weeks that cover the month; trailing weeks entirely outside it are dropped.
+    function monthGridDays(month){
+      const [y,m]=month.split('-').map(Number); const first=new Date(y,m-1,1); const start=new Date(first); start.setDate(first.getDate()-((first.getDay()+6)%7));
+      const days=[]; for(let i=0;i<42;i++){ const d=new Date(start); d.setDate(start.getDate()+i); days.push(ymd(d)); }
+      while(days.length>7 && days.slice(-7).every(x=>x.slice(0,7)!==month)) days.splice(-7,7);
+      return days;
+    }
+    function restoreShiftOps(){ const saved=safeGet('attendance_shift_ops',[]); return Array.isArray(saved)?saved.filter(o=>o && o.op && o.id):[]; }
+    function persistShiftOps(){ safeSet('attendance_shift_ops',state.shiftOps); }
+    function shiftCacheGet(month){ const c=safeObject(safeGet('attendance_shift_cache',{})); return c[month]||null; }
+    function shiftCachePut(month,data){ const c=safeObject(safeGet('attendance_shift_cache',{})); c[month]={entries:data.entries,changes:data.changes,at:Date.now()}; const keys=Object.keys(c).sort(); while(keys.length>4) delete c[keys.shift()]; safeSet('attendance_shift_cache',c); }
+    function sanitizeShiftEntries(arr){ return (Array.isArray(arr)?arr:[]).filter(e=>e && e.id && e.start).map(e=>({id:String(e.id),kind:String(e.kind||''),name:String(e.name||''),start:String(e.start),end:String(e.end||e.start),from:String(e.from||''),to:String(e.to||''),label:String(e.label||''),memo:String(e.memo||''),by:String(e.by||''),at:String(e.at||'')})); }
+    // Entries for a month as the user should see them: saved ones minus pending deletes, plus pending adds.
+    function shiftEntriesFor(month){
+      const base=(state.shiftData[month]||{}).entries||[];
+      const deleted=new Set(state.shiftOps.filter(o=>o.op==='delete').map(o=>o.id));
+      const adds=state.shiftOps.filter(o=>o.op==='add' && !base.some(e=>e.id===o.id) && o.entry.start<=month+'-31' && o.entry.end>=month+'-01').map(o=>Object.assign({},o.entry,{id:o.id,by:o.by,pending:true}));
+      return base.filter(e=>!deleted.has(e.id)).concat(adds);
+    }
+    function entriesOn(month, day){ return shiftEntriesFor(month).filter(e=>e.start<=day && e.end>=day); }
+    function sortEntries(list){ const rank=e=>e.kind==='業務'?0:(e.kind==='シフト'||e.kind==='出勤')?1:2; return list.slice().sort((a,b)=>rank(a)-rank(b)||(a.from||'').localeCompare(b.from||'')||a.name.localeCompare(b.name)); }
+    function chipText(e, withTime){ if(e.kind==='業務') return e.label; if(e.kind==='休み') return `${e.name}休み`; if(e.kind==='有給'||e.kind==='振休') return `${e.kind} ${e.name}`; return withTime && e.from ? `${e.from}-${e.to} ${e.name}` : e.name; }
+    function nextShiftFor(name, fromDay){
+      const list=[]; [fromDay.slice(0,7), addMonths(fromDay.slice(0,7),1)].forEach(m=>shiftEntriesFor(m).forEach(e=>{ if((e.kind==='シフト'||e.kind==='出勤') && e.name===name && e.start>=fromDay) list.push(e); }));
+      list.sort((a,b)=>a.start.localeCompare(b.start)||(a.from||'').localeCompare(b.from||'')); return list[0]||null;
+    }
+    function todayShiftFor(name){ const day=todayYmd(); return entriesOn(day.slice(0,7),day).find(e=>e.kind==='シフト' && e.name===name)||null; }
+    const shiftLoading=new Set();
+    async function loadShiftMonth(month, silent){
+      if(!state.shiftData[month]){ const c=shiftCacheGet(month); if(c) state.shiftData[month]={entries:sanitizeShiftEntries(c.entries),changes:Array.isArray(c.changes)?c.changes:[]}; }
+      if(state.activeTab==='shift') renderShift();
+      if(!state.gasUrl || shiftLoading.has(month)) return;
+      shiftLoading.add(month);
+      try{
+        const data=await readGASDataOnce(buildGasUrl({action:'shift',month:month,t:Date.now()}));
+        if(!data || data.ok!==true || data.month!==month || !Array.isArray(data.entries)) throw new Error((data && data.message) || 'シフトを読み取れませんでした。');
+        state.shiftData[month]={entries:sanitizeShiftEntries(data.entries),changes:Array.isArray(data.changes)?data.changes:[]};
+        shiftCachePut(month,state.shiftData[month]);
+        reconcileShiftOps(month);
+      }catch(e){ if(!silent) showStatus(e && e.message ? e.message : String(e),'error'); }
+      finally{ shiftLoading.delete(month); if(state.activeTab==='shift') renderShift(); if(state.activeTab==='punch') renderPunch(); }
+    }
+    let shiftOpRunning=null;
+    function queueShiftOp(op){ state.shiftOps.push(op); persistShiftOps(); if(state.activeTab==='shift') renderShift(); runShiftOps(); }
+    function runShiftOps(){
+      if(shiftOpRunning) return shiftOpRunning;
+      shiftOpRunning=Promise.resolve().then(async()=>{
+        try{
+          while(state.shiftOps.length){
+            const op=state.shiftOps[0];
+            if(op.unconfirmed) break; // a fresh read of the month settles it (see reconcileShiftOps)
+            op.sent=true; persistShiftOps();
+            try{
+              const params=op.op==='add' ? Object.assign({action:'shiftAdd'},op.entry,{id:op.id,by:op.by||''}) : {action:'shiftDelete',id:op.id,by:op.by||''};
+              if(state.adminToken) params.adminToken=state.adminToken;
+              const result=await adminRequest(params);
+              if(!result || result.ok!==true) throw new Error('保存結果を確認できませんでした。');
+              applyShiftOpResult(op);
+            }catch(err){
+              if(err && err.code && err.code!=='result_unconfirmed'){ // rejected for a reason: drop it and say why
+                state.shiftOps=state.shiftOps.filter(o=>o!==op); persistShiftOps();
+                showStatus((op.op==='add'?'予定を登録できませんでした: ':'予定を削除できませんでした: ')+(err.message||''),'error'); continue;
+              }
+              op.unconfirmed=true; persistShiftOps(); showStatus('通信が不安定です。予定の保存は次に開いたときに確認します。','error'); break;
+            }
+          }
+        } finally { shiftOpRunning=null; if(state.activeTab==='shift') renderShift(); if(state.activeTab==='punch') renderPunch(); }
+      });
+      return shiftOpRunning;
+    }
+    function applyShiftOpResult(op){
+      state.shiftOps=state.shiftOps.filter(o=>o!==op); persistShiftOps();
+      const months=new Set(op.op==='add' ? [op.entry.start.slice(0,7), op.entry.end.slice(0,7)] : [op.month]);
+      months.forEach(m=>{ const d=state.shiftData[m]; if(!d) return;
+        if(op.op==='add'){ if(!d.entries.some(e=>e.id===op.id)) d.entries.push(Object.assign({},op.entry,{id:op.id,by:op.by||'',at:getJSTDateTime().full})); }
+        else d.entries=d.entries.filter(e=>e.id!==op.id);
+        shiftCachePut(m,d); });
+      // Refresh the affected months quietly so the 新着 list and other devices' edits come through.
+      if(state.activeTab==='shift') months.forEach(m=>loadShiftMonth(m,true));
+    }
+    function reconcileShiftOps(month){
+      const d=state.shiftData[month]; if(!d) return; let changed=false;
+      state.shiftOps=state.shiftOps.filter(op=>{
+        const inMonth = op.op==='add' ? (op.entry.start<=month+'-31' && op.entry.end>=month+'-01') : op.month===month;
+        if(!inMonth) return true;
+        const present=d.entries.some(e=>e.id===op.id);
+        if(op.op==='add' && present){ changed=true; return false; }
+        if(op.op==='delete' && !present){ changed=true; return false; }
+        if(op.unconfirmed){ op.unconfirmed=false; op.sent=false; changed=true; } // not there yet: send again (the server ignores a repeated id)
+        return true;
+      });
+      if(changed) persistShiftOps();
+      if(state.shiftOps.some(o=>!o.sent)) runShiftOps();
+    }
+    function canEditShift(e){ return state.isAdminAuthenticated || (!!state.selectedUser && (e.name===state.selectedUser || e.by===state.selectedUser)); }
+    function findShiftEntry(id){ for(const m of Object.keys(state.shiftData)){ const e=shiftEntriesFor(m).find(x=>x.id===id); if(e) return e; } for(const op of state.shiftOps){ if(op.op==='add' && op.id===id) return Object.assign({},op.entry,{id:op.id,pending:true}); } return null; }
+    function shiftChip(e, withTime){
+      const cls = e.kind==='業務' ? 'task' : (e.kind==='休み'||e.kind==='有給'||e.kind==='振休') ? 'off' : 'person';
+      const [bg,fg]=personColor(e.name);
+      const style = cls==='person' ? ` style="background:${bg};color:${fg}"` : '';
+      const mine = state.selectedUser && e.name===state.selectedUser ? ' mine' : '';
+      return `<div class="shift-chip ${cls}${mine}${e.pending?' pending':''}"${style} title="${esc(chipText(e,true))}">${esc(chipText(e,withTime))}</div>`;
+    }
+    function renderShift(){
+      const month=state.shiftMonth, today=todayYmd(), user=state.selectedUser;
+      $('shiftTitle').textContent=`${month.slice(0,4)}年${Number(month.slice(5,7))}月`;
+      const next=user?nextShiftFor(user,today):null;
+      $('shiftNextWork').textContent = !user ? '打刻画面で名前を選ぶと、自分の予定が枠付きで強調されます。' : next ? `${user}さんの次の出勤: ${fmtDay(next.start)}${next.from?' '+next.from+'-'+next.to:''}` : `${user}さんの今後の出勤予定はまだ入っていません。`;
+      const days=monthGridDays(month), dow=['月','火','水','木','金','土','日'];
+      let html=dow.map((d,i)=>`<div class="shift-dow${i===5?' sat':i===6?' sun':''}">${d}</div>`).join('');
+      days.forEach((day,i)=>{
+        const inMonth=day.slice(0,7)===month, hol=JP_HOLIDAYS[day], w=i%7;
+        const chips=(hol?[`<div class="shift-chip holiday">${esc(hol)}</div>`]:[]).concat(sortEntries(entriesOn(day.slice(0,7),day)).map(e=>shiftChip(e,false)));
+        html+=`<div class="shift-day${inMonth?'':' other'}${day===today?' today':''}${day===state.shiftSelectedDay?' selected':''}${w===5?' sat':w===6?' sun':''}${hol?' holiday':''}" data-day="${day}" role="button"><div class="shift-date">${Number(day.slice(8))}</div>${chips.join('')}</div>`;
+      });
+      $('shiftGrid').innerHTML=html;
+      $('shiftGrid').querySelectorAll('[data-day]').forEach(el=>el.addEventListener('click',()=>{ const day=el.dataset.day; state.shiftSelectedDay=day; if(day.slice(0,7)!==month){ state.shiftMonth=day.slice(0,7); loadShiftMonth(state.shiftMonth); } renderShift(); }));
+      renderShiftDay(); renderShiftChanges();
+    }
+    function renderShiftDay(){
+      const day=state.shiftSelectedDay, card=$('shiftDayCard');
+      card.classList.toggle('hidden',!day); if(!day) return;
+      $('shiftDayTitle').textContent=`${fmtDay(day)}${JP_HOLIDAYS[day]?' '+JP_HOLIDAYS[day]:''}`;
+      const list=sortEntries(entriesOn(day.slice(0,7),day));
+      $('shiftDayList').innerHTML = list.length ? list.map(e=>{
+        const [bg,fg]=personColor(e.name); const editable=canEditShift(e) && !e.pending;
+        const time = e.kind==='業務' ? '終日' : (e.from ? `${e.from}-${e.to}` : e.kind);
+        return `<div class="log-item${e.pending?' pending':''}"><div class="log-main"><div class="log-line"><span class="tag" style="background:${e.kind==='業務'?'#ccfbf1':bg};color:${e.kind==='業務'?'#115e59':fg}">${esc(time)}</span><span class="name">${esc(e.kind==='業務'?e.label:e.name)}</span>${e.kind!=='業務'&&e.kind!=='シフト'&&e.from?`<span class="tag off">${esc(e.kind)}</span>`:''}${e.pending?'<span class="tag pending">⏳ 保存確認中</span>':''}</div>${e.memo?`<p class="memo">${esc(e.memo)}</p>`:''}<p class="memo">登録: ${esc(e.by||'-')}${e.end!==e.start?` ／ ${esc(fmtDay(e.start))}〜${esc(fmtDay(e.end))}`:''}</p></div><div class="row" style="gap:4px">${editable?`<button class="mini-btn" type="button" data-shift-edit="${esc(e.id)}">変更</button><button class="delete-btn" type="button" data-shift-delete="${esc(e.id)}" title="削除">🗑</button>`:''}</div></div>`;
+      }).join('') : '<div class="empty">予定はありません。「＋ 追加」から登録できます。</div>';
+      $('shiftDayList').querySelectorAll('[data-shift-delete]').forEach(b=>b.addEventListener('click',()=>deleteShiftEntry(b.dataset.shiftDelete)));
+      $('shiftDayList').querySelectorAll('[data-shift-edit]').forEach(b=>b.addEventListener('click',()=>openShiftModal(day, findShiftEntry(b.dataset.shiftEdit))));
+    }
+    function renderShiftChanges(){
+      const d=state.shiftData[state.shiftMonth]; const list=d && Array.isArray(d.changes) ? d.changes : [];
+      $('shiftChanges').innerHTML = list.length ? list.slice(0,15).map(c=>`<div class="log-item"><div class="log-main"><div class="log-line"><span class="tag ${c.deleted?'unconfirmed':'in'}">${c.deleted?'削除':'追加'}</span><span class="name">${esc(chipText(c,true))}</span><span class="memo">${esc(fmtDay(c.start))}${c.end&&c.end!==c.start?'〜'+esc(fmtDay(c.end)):''}</span></div><p class="memo">${esc(c.deleted?(c.deletedBy||''):(c.by||''))} ・ ${esc(shortWhen(c.deleted?c.deletedAt:c.at))}</p></div></div>`).join('') : '<div class="empty">まだ変更はありません。</div>';
+    }
+    function deleteShiftEntry(id){
+      const e=findShiftEntry(id); if(!e || e.pending) return;
+      const ok=typeof window.confirm==='function' ? window.confirm(`${chipText(e,true)}（${fmtDay(e.start)}）を削除します。よろしいですか？`) : true;
+      if(!ok) return;
+      queueShiftOp({op:'delete',id:e.id,month:e.start.slice(0,7),by:state.selectedUser||(state.isAdminAuthenticated?'管理者':''),sent:false});
+      showStatus('予定を削除しました。','success');
+    }
+    function openShiftModal(day, editing){
+      state.shiftEditing=editing||null;
+      const e=editing||{kind:'シフト',name:state.selectedUser||'',start:day||todayYmd(),end:day||todayYmd(),from:'09:30',to:'15:00',label:'',memo:''};
+      $('shiftModalTitle').textContent=editing?'予定を変更':'予定を追加';
+      const sel=$('shiftName'); sel.innerHTML='<option value="">-- 名前を選択 --</option>'+state.users.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join(''); sel.value=e.name;
+      $('shiftStart').value=e.start; $('shiftEnd').value=e.end; $('shiftFrom').value=e.from||''; $('shiftTo').value=e.to||''; $('shiftLabel').value=e.label||''; $('shiftMemo').value=e.memo||'';
+      setShiftKind(e.kind); $('shiftModalError').classList.add('hidden'); $('shiftModal').classList.add('show');
+    }
+    function setShiftKind(kind){
+      state.shiftKind=kind;
+      $('shiftKindChoices').innerHTML=SHIFT_KINDS.map(k=>`<button type="button" class="choice${k===kind?' active':''}" data-kind="${k}">${k}</button>`).join('');
+      $('shiftKindChoices').querySelectorAll('[data-kind]').forEach(b=>b.addEventListener('click',()=>setShiftKind(b.dataset.kind)));
+      $('shiftNameRow').classList.toggle('hidden',kind==='業務');
+      $('shiftLabelRow').classList.toggle('hidden',kind!=='業務');
+      $('shiftTimeRow').classList.toggle('hidden',!(kind==='シフト'||kind==='出勤'));
+      $('shiftEndWrap').classList.toggle('hidden',kind==='シフト');
+      const from=$('shiftFrom').value, to=$('shiftTo').value;
+      $('shiftPatterns').innerHTML=SHIFT_PATTERNS.map(([f,t])=>`<button type="button" class="choice${from===f&&to===t?' active':''}" data-from="${f}" data-to="${t}">${f}-${t}</button>`).join('');
+      $('shiftPatterns').querySelectorAll('[data-from]').forEach(b=>b.addEventListener('click',()=>{ $('shiftFrom').value=b.dataset.from; $('shiftTo').value=b.dataset.to; setShiftKind(state.shiftKind); }));
+    }
+    function closeShiftModal(){ $('shiftModal').classList.remove('show'); state.shiftEditing=null; }
+    function saveShiftEntry(){
+      const kind=state.shiftKind, name=$('shiftName').value, start=$('shiftStart').value, end=kind==='シフト' ? start : ($('shiftEnd').value||start);
+      const timed = kind==='シフト'||kind==='出勤';
+      const from=timed?$('shiftFrom').value:'', to=timed?$('shiftTo').value:'', label=$('shiftLabel').value.trim(), memo=$('shiftMemo').value.trim();
+      const err = !/^\d{4}-\d{2}-\d{2}$/.test(start) ? '日付を入力してください。' : end<start ? '終了日は開始日以降にしてください。' : kind==='業務' ? (!label ? '業務の内容を入力してください。' : '') : !name ? '名前を選んでください。' : (kind==='シフト' && (!from||!to)) ? '開始と終了の時刻を入力してください。' : (from && to && to<=from) ? '終了時刻は開始より後にしてください。' : '';
+      if(err){ const box=$('shiftModalError'); box.textContent=err; box.classList.remove('hidden'); return; }
+      const by = state.selectedUser || (state.isAdminAuthenticated ? '管理者' : (kind==='業務' ? '' : name));
+      const entry={kind:kind,name:kind==='業務'?'':name,start:start,end:end,from:from,to:to,label:kind==='業務'?label:'',memo:memo};
+      if(state.shiftEditing) queueShiftOp({op:'delete',id:state.shiftEditing.id,month:state.shiftEditing.start.slice(0,7),by:by,sent:false});
+      queueShiftOp({op:'add',id:window.crypto.randomUUID(),entry:entry,by:by,sent:false});
+      closeShiftModal(); showStatus(state.shiftEditing?'予定を変更しました。':'予定を登録しました。','success');
     }
     function resumePendingPunch(){
       if(state.isPunchSubmitting || !state.pendingPunch || headSend) return;

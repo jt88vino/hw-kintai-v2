@@ -6,6 +6,13 @@ const MASTER_SHEET_NAME = "勤怠マスタ";
 const MEMBER_SHEET_SUFFIX = "_勤務表";
 const CATEGORY_USERS = ["田中", "牛嶋", "長谷川", "住吉", "鈴木"];
 const WORK_CATEGORIES = ["アカデミー", "ホームワイン", "その他（WT業務）"];
+// シフト（予定表）: 種別ごとに1行。削除は行を消さず「状態」に残す（新着一覧のため）。
+const SHIFT_SHEET_NAME = "シフト";
+const SHIFT_HEADERS = ["ID","種別","名前","開始日","終了日","開始時刻","終了時刻","ラベル","メモ","登録者","登録日時","状態","削除者","削除日時"];
+const SHIFT_KINDS = ["シフト","業務","出勤","休み","有給","振休"];
+// お知らせ: 管理者（アプリの管理者認証、または NOTICE_TOKEN プロパティ）だけが掲載・削除できる。
+const NOTICE_SHEET_NAME = "お知らせ";
+const NOTICE_HEADERS = ["ID","本文","掲載開始","掲載終了","登録者","登録日時","状態","削除日時"];
 const ALLOCATION_ITEMS = [{"id": "hw_production", "label": "HWの生産", "description": "伝票作成/詰め替え/梱包（WT）", "category": "ホームワイン"}, {"id": "hw_support", "label": "HWのお問い合わせ", "description": "メール/Lステップ（HW）", "category": "ホームワイン"}, {"id": "hw_admin", "label": "HWの管理", "description": "発送完了メール/売上処理/ec force配送管理/搬入（HW）", "category": "ホームワイン"}, {"id": "hw_pro", "label": "HWのPRO制作", "description": "PROのH1/Figma（HW）", "category": "ホームワイン"}, {"id": "hw_other", "label": "HWのその他", "description": "搬入などボトル販売/イベント/ツアー ※ホームワイン人件費に含まれない項目", "category": "その他（WT業務）"}, {"id": "hwa_production", "label": "HWAの生産", "description": "伝票作成/詰め替え/梱包", "category": "アカデミー"}, {"id": "hwa_support", "label": "HWAのお問い合わせ", "description": "メール/Lステップ", "category": "アカデミー"}, {"id": "hwa_admin", "label": "HWAの管理", "description": "発送完了メール/売上処理/ec force配送管理/搬入", "category": "アカデミー"}, {"id": "hwa_text", "label": "HWAのテキスト制作", "description": "H1/Figma（HW）、キャンバ、動画", "category": "アカデミー"}, {"id": "hwa_other", "label": "HWAのその他", "description": "搬入などボトル販売/イベント/ツアー ※アカデミー人件費に含まれない項目", "category": "その他（WT業務）"}];
 // 管理者認証情報はスクリプトプロパティで管理する。
 
@@ -56,7 +63,7 @@ function handleRequest_(e, isPost) {
     const value = /^[a-f0-9-]{36}$/.test(key) ? CacheService.getScriptCache().get("result:" + key) : null;
     return createResponse_(e, value ? JSON.parse(value) : {ok:false, pending:true});
   }
-  if (adminActions.indexOf(action) !== -1 || action === "deleteRecent" || (action === "add" && isPost)) {
+  if (adminActions.indexOf(action) !== -1 || action === "deleteRecent" || action === "shiftAdd" || action === "shiftDelete" || action === "noticeAdd" || action === "noticeDelete" || (action === "add" && isPost)) {
     if (!isPost || params.callback) return createResponse_(e, {ok:false, error:"post_required"});
     if (!/^[a-f0-9-]{36}$/.test(String(params.receipt || ""))) return createResponse_(e, {ok:false, error:"invalid_receipt"});
     let result;
@@ -64,6 +71,10 @@ function handleRequest_(e, isPost) {
       if (action === "adminLogin") result = loginAdmin_(params);
       else if (action === "add") { const addSS = SpreadsheetApp.openById(SPREADSHEET_ID); result = addLog_(getOrCreateMasterSheet_(addSS), params); }
       else if (action === "deleteRecent") { const recentSS = SpreadsheetApp.openById(SPREADSHEET_ID); result = deleteLog_(getOrCreateMasterSheet_(recentSS), params, true); }
+      else if (action === "shiftAdd") { result = addShift_(SpreadsheetApp.openById(SPREADSHEET_ID), params); }
+      else if (action === "shiftDelete") { result = deleteShift_(SpreadsheetApp.openById(SPREADSHEET_ID), params); }
+      else if (action === "noticeAdd") { result = addNotice_(SpreadsheetApp.openById(SPREADSHEET_ID), params); }
+      else if (action === "noticeDelete") { result = deleteNotice_(SpreadsheetApp.openById(SPREADSHEET_ID), params); }
       else {
         if(action==='delete' && params.adminPassword) {
           const auth=loginAdmin_(params);
@@ -88,6 +99,7 @@ function handleRequest_(e, isPost) {
       if(cached) return createResponse_(e,JSON.parse(cached));
     }
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    if (action === "shift") return createResponse_(e, readShifts_(ss, params));
     const sheet = action === "read" ? ss.getSheetByName(MASTER_SHEET_NAME) : getOrCreateMasterSheet_(ss);
 
     if (action === "read") {
@@ -441,7 +453,7 @@ function readData_(ss, sheet, params) {
     const logs=readIndexedRows_(sheet,spans), roster=readRoster_(ss);
     const result={ok:true,action:'read',schemaVersion:5,scope:scope,month:scope==='month'?month:null,
       revision:index.revision,months:Object.keys(index.months).sort().reverse(),logs:logs,
-      users:roster.users,transportationCosts:roster.transportationCosts,
+      users:roster.users,transportationCosts:roster.transportationCosts,notices:readNotices_(ss),
       serverTime:Utilities.formatDate(new Date(),'Asia/Tokyo','yyyy-MM-dd HH:mm:ss')};
     if(scope==='recent') {
       const value=JSON.stringify(result);
@@ -876,4 +888,180 @@ function shiftMinutes_(logs,name,endTime) {
   });
   if(!active || !Number.isFinite(end) || end-shiftStart>SHIFT_LIMIT_MS) return null;
   return Math.floor((ms+(working?Math.max(0,end-start):0))/60000);
+}
+
+// ===== シフト（予定表） =====
+function getOrCreateShiftSheet_(ss) {
+  let sheet = ss.getSheetByName(SHIFT_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHIFT_SHEET_NAME);
+    sheet.appendRow(SHIFT_HEADERS);
+    sheet.getRange(1, 1, 1, SHIFT_HEADERS.length).setFontWeight("bold");
+    sheet.getRange("A:N").setNumberFormat("@"); // keep dates and clocks as the text the app wrote
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+function shiftDate_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, "Asia/Tokyo", "yyyy-MM-dd");
+  const m = String(v || "").match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  return m ? m[1] + "-" + m[2].padStart(2, "0") + "-" + m[3].padStart(2, "0") : "";
+}
+function shiftClock_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, "Asia/Tokyo", "HH:mm");
+  const m = String(v || "").match(/(\d{1,2}):(\d{2})/);
+  return m ? m[1].padStart(2, "0") + ":" + m[2] : "";
+}
+function shiftEntry_(row, rowNumber) {
+  return {id:String(row[0]||""), kind:String(row[1]||""), name:String(row[2]||""), start:shiftDate_(row[3]), end:shiftDate_(row[4])||shiftDate_(row[3]),
+    from:shiftClock_(row[5]), to:shiftClock_(row[6]), label:String(row[7]||""), memo:String(row[8]||""), by:String(row[9]||""), at:row[10]?indexTime_(row[10]):"",
+    deleted:String(row[11]||"")==="削除", deletedBy:String(row[12]||""), deletedAt:row[13]?indexTime_(row[13]):"", row:rowNumber};
+}
+function shiftMonths_(start, end) {
+  const out = []; let y = +start.slice(0, 4), m = +start.slice(5, 7); const ey = +end.slice(0, 4), em = +end.slice(5, 7);
+  while ((y < ey || (y === ey && m <= em)) && out.length < 24) { out.push(y + "-" + String(m).padStart(2, "0")); m++; if (m > 12) { m = 1; y++; } }
+  return out;
+}
+function clearShiftCache_(start, end) { const c = CacheService.getScriptCache(); shiftMonths_(start, end).forEach(m => c.remove("shift:" + m)); }
+function readShifts_(ss, params) {
+  const month = String(params.month || "");
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return {ok:false, error:"invalid_month", message:"対象月を確認してください。"};
+  const cache = CacheService.getScriptCache();
+  if (params.fresh !== "1") { const cached = cache.get("shift:" + month); if (cached) return JSON.parse(cached); }
+  const sheet = ss.getSheetByName(SHIFT_SHEET_NAME);
+  const rows = sheet && sheet.getLastRow() > 1 ? sheet.getRange(2, 1, sheet.getLastRow() - 1, SHIFT_HEADERS.length).getDisplayValues() : [];
+  const first = month + "-01", last = month + "-31", entries = [], changes = [];
+  rows.forEach((row, i) => {
+    if (!row[0]) return;
+    const e = shiftEntry_(row, i + 2);
+    if (!e.deleted && e.start <= last && e.end >= first) entries.push(e);
+    changes.push(e);
+  });
+  changes.sort((a, b) => (b.deletedAt || b.at).localeCompare(a.deletedAt || a.at));
+  const result = {ok:true, action:"shift", month:month, entries:entries, changes:changes.slice(0, 30),
+    serverTime:Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy-MM-dd HH:mm:ss")};
+  const value = JSON.stringify(result);
+  if (value.length < 90000) cache.put("shift:" + month, value, 60);
+  return result;
+}
+function validateShift_(params, roster) {
+  const kind = String(params.kind || ""), name = String(params.name || "").trim(), start = shiftDate_(params.start), end = shiftDate_(params.end) || start;
+  const from = shiftClock_(params.from), to = shiftClock_(params.to), label = String(params.label || "").trim(), memo = String(params.memo || "").trim();
+  if (SHIFT_KINDS.indexOf(kind) === -1) return {error:"invalid_kind", message:"種類を選んでください。"};
+  if (!start) return {error:"invalid_date", message:"日付を確認してください。"};
+  if (end < start) return {error:"invalid_date", message:"終了日は開始日以降にしてください。"};
+  if (kind === "業務") { if (!label) return {error:"missing_label", message:"業務の内容を入力してください。"}; }
+  else {
+    if (!name) return {error:"missing_name", message:"名前を選んでください。"};
+    if (roster.indexOf(name) === -1) return {error:"unknown_name", message:"名簿にない名前です。"};
+    if (kind === "シフト" && end !== start) return {error:"invalid_date", message:"シフトは1日ずつ登録してください。"};
+  }
+  if (kind === "シフト" && (!from || !to)) return {error:"missing_time", message:"開始と終了の時刻を入力してください。"};
+  if (from && to && to <= from) return {error:"invalid_time", message:"終了時刻は開始より後にしてください。"};
+  if (label.length > 60 || memo.length > 200) return {error:"too_long", message:"内容は60文字、メモは200文字までです。"};
+  return {kind:kind, name:kind === "業務" ? "" : name, start:start, end:end, from:from, to:to, label:kind === "業務" ? label : "", memo:memo};
+}
+function findShiftRow_(sheet, id) {
+  const lastRow = sheet.getLastRow(); if (lastRow < 2 || !id) return 0;
+  const found = sheet.getRange(2, 1, lastRow - 1, 1).createTextFinder(String(id)).matchEntireCell(true).findNext();
+  return found ? found.getRow() : 0;
+}
+function addShift_(ss, params) {
+  const id = String(params.id || "");
+  if (!/^[A-Za-z0-9-]{8,64}$/.test(id)) return {ok:false, action:"shiftAdd", error:"invalid_id", message:"IDが不正です。"};
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const sheet = getOrCreateShiftSheet_(ss);
+    if (findShiftRow_(sheet, id)) return {ok:true, action:"shiftAdd", id:id, duplicate:true};
+    const v = validateShift_(params, readRoster_(ss).users);
+    if (v.error) return {ok:false, action:"shiftAdd", error:v.error, message:v.message};
+    const by = String(params.by || "").trim().slice(0, 20) || "不明";
+    const now = Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy-MM-dd HH:mm:ss");
+    sheet.appendRow([id, v.kind, v.name, v.start, v.end, v.from, v.to, v.label, v.memo, by, now, "", "", ""]);
+    SpreadsheetApp.flush();
+    clearShiftCache_(v.start, v.end);
+    return {ok:true, action:"shiftAdd", id:id, entry:Object.assign({id:id, by:by, at:now, deleted:false}, v)};
+  } finally { lock.releaseLock(); }
+}
+function deleteShift_(ss, params) {
+  const id = String(params.id || ""), by = String(params.by || "").trim().slice(0, 20);
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const sheet = ss.getSheetByName(SHIFT_SHEET_NAME);
+    const row = sheet ? findShiftRow_(sheet, id) : 0;
+    if (!row) return {ok:false, action:"shiftDelete", error:"not_found", message:"その予定は見つかりません。"};
+    const e = shiftEntry_(sheet.getRange(row, 1, 1, SHIFT_HEADERS.length).getDisplayValues()[0], row);
+    if (e.deleted) return {ok:true, action:"shiftDelete", id:id, duplicate:true};
+    const admin = validateAdmin_(params, "shiftDelete") === null;
+    // Anyone may remove what they entered or what carries their own name; the rest needs the admin.
+    if (!admin && !(by && (e.name === by || e.by === by))) return {ok:false, action:"shiftDelete", error:"forbidden", message:"自分の予定以外は管理者だけが削除できます。"};
+    const now = Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy-MM-dd HH:mm:ss");
+    sheet.getRange(row, 12, 1, 3).setValues([["削除", by || "管理者", now]]);
+    SpreadsheetApp.flush();
+    clearShiftCache_(e.start, e.end);
+    return {ok:true, action:"shiftDelete", id:id};
+  } finally { lock.releaseLock(); }
+}
+
+// ===== お知らせ =====
+function getOrCreateNoticeSheet_(ss) {
+  let sheet = ss.getSheetByName(NOTICE_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(NOTICE_SHEET_NAME);
+    sheet.appendRow(NOTICE_HEADERS);
+    sheet.getRange(1, 1, 1, NOTICE_HEADERS.length).setFontWeight("bold");
+    sheet.getRange("A:H").setNumberFormat("@");
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+function noticeAuth_(params) {
+  if (validateAdmin_(params, "notice") === null) return true;
+  const expected = PropertiesService.getScriptProperties().getProperty("NOTICE_TOKEN");
+  return !!expected && expected.length >= 16 && String(params.noticeToken || "") === expected;
+}
+function readNotices_(ss) {
+  // Notices ride along with every read; a problem here must never break attendance itself.
+  try {
+    const sheet = ss && typeof ss.getSheetByName === "function" ? ss.getSheetByName(NOTICE_SHEET_NAME) : null;
+    if (!sheet || sheet.getLastRow() < 2) return [];
+    const today = Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy-MM-dd");
+    return sheet.getRange(2, 1, sheet.getLastRow() - 1, NOTICE_HEADERS.length).getDisplayValues()
+      .filter(r => r[0] && String(r[6] || "") !== "削除")
+      .map(r => ({id:String(r[0]), text:String(r[1] || ""), from:shiftDate_(r[2]), until:shiftDate_(r[3]), by:String(r[4] || ""), at:r[5] ? indexTime_(r[5]) : ""}))
+      .filter(n => n.text && (!n.from || n.from <= today) && (!n.until || n.until >= today))
+      .sort((a, b) => b.at.localeCompare(a.at)).slice(0, 10);
+  } catch (e) { return []; }
+}
+function addNotice_(ss, params) {
+  if (!noticeAuth_(params)) return {ok:false, action:"noticeAdd", error:"unauthorized", message:"お知らせの掲載には管理者認証が必要です。"};
+  const text = String(params.text || "").replace(/\r/g, "").trim();
+  if (!text) return {ok:false, action:"noticeAdd", error:"missing_text", message:"本文を入力してください。"};
+  if (text.length > 500) return {ok:false, action:"noticeAdd", error:"too_long", message:"本文は500文字までです。"};
+  const from = shiftDate_(params.from), until = shiftDate_(params.until);
+  if (from && until && until < from) return {ok:false, action:"noticeAdd", error:"invalid_date", message:"掲載終了は掲載開始以降にしてください。"};
+  const id = /^[A-Za-z0-9-]{8,64}$/.test(String(params.id || "")) ? String(params.id) : Utilities.getUuid();
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const sheet = getOrCreateNoticeSheet_(ss);
+    if (findShiftRow_(sheet, id)) return {ok:true, action:"noticeAdd", id:id, duplicate:true};
+    const now = Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy-MM-dd HH:mm:ss");
+    sheet.appendRow([id, text, from, until, String(params.by || "管理者").trim().slice(0, 20) || "管理者", now, "", ""]);
+    SpreadsheetApp.flush();
+    CacheService.getScriptCache().remove("attendance:recent");
+    return {ok:true, action:"noticeAdd", id:id, notice:{id:id, text:text, from:from, until:until, by:String(params.by || "管理者").trim().slice(0, 20) || "管理者", at:now}};
+  } finally { lock.releaseLock(); }
+}
+function deleteNotice_(ss, params) {
+  if (!noticeAuth_(params)) return {ok:false, action:"noticeDelete", error:"unauthorized", message:"お知らせの削除には管理者認証が必要です。"};
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const sheet = ss.getSheetByName(NOTICE_SHEET_NAME);
+    const row = sheet ? findShiftRow_(sheet, String(params.id || "")) : 0;
+    if (!row) return {ok:false, action:"noticeDelete", error:"not_found", message:"そのお知らせは見つかりません。"};
+    sheet.getRange(row, 7, 1, 2).setValues([["削除", Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy-MM-dd HH:mm:ss")]]);
+    SpreadsheetApp.flush();
+    CacheService.getScriptCache().remove("attendance:recent");
+    return {ok:true, action:"noticeDelete", id:String(params.id)};
+  } finally { lock.releaseLock(); }
 }
