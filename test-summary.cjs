@@ -23,7 +23,8 @@ const master=makeSheet('勤怠マスタ',[['t','名前','区分','打刻日時',
   ['t','喜多','退勤','2026-09-02 13:30:00','2026-09','k6','','','','','','','','','','','','','','',''],
   ['t','田中','出勤','2026-09-03 9:00:00','2026-09','t1','','','業務配分','','','','','','','','','','','',''],
   ['t','田中','退勤','2026-09-03 11:45:00','2026-09','t2','','','業務配分','','','','','','','','','','','',ALLOC]]);
-const sheets=[master,makeSheet('喜多_勤務表',[['対象月','2026-09','喜多','','','','','往復交通費',636]]),makeSheet('田中_勤務表',[['対象月','2026-09','田中','','','','','往復交通費',0]])];
+const placeholder=makeSheet('月次集計ダッシュボード',[['後ほど一目で見られるように作成']]);
+const sheets=[master,placeholder,makeSheet('喜多_勤務表',[['対象月','2026-09','喜多','','','','','往復交通費',636]]),makeSheet('田中_勤務表',[['対象月','2026-09','田中','','','','','往復交通費',0]])];
 const ss={getSheetByName:n=>sheets.find(s=>s.getName()===n)||null,insertSheet:n=>{const s=makeSheet(n);sheets.push(s);return s;},getSheets:()=>sheets,setActiveSheet(){},moveActiveSheet(){}};
 const cache=new Map(),props=new Map();
 const pad=n=>String(n).padStart(2,'0');
@@ -39,7 +40,7 @@ assert.equal(st['喜多'].totalMinutes,540);assert.equal(st['喜多'].daysCount,
 assert.equal(st['田中'].totalMinutes,165);assert.equal(st['田中'].categoryMinutes['ホームワイン'],60);assert.equal(st['田中'].categoryMinutes['アカデミー'],105);
 // Writing creates both sheets, sorts members by hours, appends a 合計 row, and formats via the data sheet.
 assert.equal(gas.writeMonthlySummary_(ss,'2026-09'),3);
-const dataSheet=ss.getSheetByName('月次集計_データ'),view=ss.getSheetByName('月次集計');assert(dataSheet&&view);
+const dataSheet=ss.getSheetByName('月次集計_データ'),view=ss.getSheetByName('月次集計ダッシュボード');assert(dataSheet&&view);assert.equal(view,placeholder); // the hand-made placeholder is configured in place
 assert.equal(JSON.stringify(dataSheet.rows[0]),JSON.stringify(['月','名前','出勤日数','勤務時間','時間(小数)','目標80H比','交通費支給日','往復交通費','交通費合計','アカデミー','ホームワイン','その他（WT業務）','更新日時']));
 const kita=dataSheet.rows[1],tanaka=dataSheet.rows[2],total=dataSheet.rows[3];
 assert.equal(JSON.stringify(kita.slice(0,12)),JSON.stringify(['2026-09','喜多',2,540/1440,9,540/4800,1,636,636,0,0,0]));

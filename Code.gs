@@ -1090,9 +1090,9 @@ function deleteNotice_(ss, params) {
 
 // ===== 月次集計シート =====
 // アプリのダッシュボード（calculateMonthlyStats）と同じロジックで月ごとに集計し、給与計算用にシートへ書き出す。
-// 「月次集計_データ」は機械が書く表（月×メンバー、合計行つき）、「月次集計」はB1で月を選んで眺める画面。
+// 「月次集計_データ」は機械が書く表（月×メンバー、合計行つき）、「月次集計ダッシュボード」はB1で月を選んで眺める画面。
 const SUMMARY_DATA_SHEET_NAME = "月次集計_データ";
-const SUMMARY_VIEW_SHEET_NAME = "月次集計";
+const SUMMARY_VIEW_SHEET_NAME = "月次集計ダッシュボード";
 const SUMMARY_HEADERS = ["月","名前","出勤日数","勤務時間","時間(小数)","目標80H比","交通費支給日","往復交通費","交通費合計","アカデミー","ホームワイン","その他（WT業務）","更新日時"];
 const SUMMARY_TARGET_MINUTES = 80 * 60;
 
@@ -1176,8 +1176,9 @@ function getOrCreateSummaryDataSheet_(ss) {
 }
 function getOrCreateSummaryViewSheet_(ss) {
   let sheet = ss.getSheetByName(SUMMARY_VIEW_SHEET_NAME);
-  if (sheet) return sheet;
-  sheet = ss.insertSheet(SUMMARY_VIEW_SHEET_NAME);
+  // A sheet of that name made by hand (a placeholder note, say) is set up in place; a configured one is left alone.
+  if (sheet && sheet.getRange("A8").getFormula()) return sheet;
+  if (sheet) sheet.clear(); else sheet = ss.insertSheet(SUMMARY_VIEW_SHEET_NAME);
   const D = "'" + SUMMARY_DATA_SHEET_NAME + "'!", month = "$B$1";
   const totalOf = col => "=IFERROR(INDEX(FILTER(" + D + col + ":" + col + "," + D + "A:A=" + month + "," + D + "B:B=\"合計\"),1),0)";
   sheet.getRange("A1").setValue("月次集計（対象月 →）").setFontWeight("bold").setFontSize(14);
