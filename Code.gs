@@ -63,7 +63,7 @@ function handleRequest_(e, isPost) {
     const value = /^[a-f0-9-]{36}$/.test(key) ? CacheService.getScriptCache().get("result:" + key) : null;
     return createResponse_(e, value ? JSON.parse(value) : {ok:false, pending:true});
   }
-  if (adminActions.indexOf(action) !== -1 || action === "deleteRecent" || action === "shiftAdd" || action === "shiftDelete" || action === "noticeAdd" || action === "noticeDelete" || (action === "add" && isPost)) {
+  if (adminActions.indexOf(action) !== -1 || action === "deleteRecent" || action === "shiftAdd" || action === "shiftDelete" || action === "noticeAdd" || action === "noticeDelete" || action === "summaryRebuild" || (action === "add" && isPost)) {
     if (!isPost || params.callback) return createResponse_(e, {ok:false, error:"post_required"});
     if (!/^[a-f0-9-]{36}$/.test(String(params.receipt || ""))) return createResponse_(e, {ok:false, error:"invalid_receipt"});
     let result;
@@ -75,6 +75,7 @@ function handleRequest_(e, isPost) {
       else if (action === "shiftDelete") { result = deleteShift_(SpreadsheetApp.openById(SPREADSHEET_ID), params); }
       else if (action === "noticeAdd") { result = addNotice_(SpreadsheetApp.openById(SPREADSHEET_ID), params); }
       else if (action === "noticeDelete") { result = deleteNotice_(SpreadsheetApp.openById(SPREADSHEET_ID), params); }
+      else if (action === "summaryRebuild") { result = rebuildSummary_(SpreadsheetApp.openById(SPREADSHEET_ID), params); }
       else {
         if(action==='delete' && params.adminPassword) {
           const auth=loginAdmin_(params);
@@ -91,6 +92,8 @@ function handleRequest_(e, isPost) {
       }
     } catch (err) { result = {ok:false, error:"admin_action_failed", message:"管理者操作に失敗しました。再同期して状態を確認してください。"}; }
     CacheService.getScriptCache().put("result:" + params.receipt, JSON.stringify(result), 60);
+    // The receipt is stored, so the app already has its answer; the payroll sheet catches up afterwards.
+    if (result && result.ok && (action === "add" || action === "delete" || action === "deleteRecent")) { try { refreshMonthlySummary_(summaryMonthsFor_(action, params)); } catch (err) {} }
     return createResponse_(e, result);
   }
   try {
@@ -1083,4 +1086,164 @@ function deleteNotice_(ss, params) {
     CacheService.getScriptCache().remove("attendance:recent");
     return {ok:true, action:"noticeDelete", id:String(params.id)};
   } finally { lock.releaseLock(); }
+}
+
+// ===== 月次集計シート =====
+// アプリのダッシュボード（calculateMonthlyStats）と同じロジックで月ごとに集計し、給与計算用にシートへ書き出す。
+// 「月次集計_データ」は機械が書く表（月×メンバー、合計行つき）、「月次集計」はB1で月を選んで眺める画面。
+const SUMMARY_DATA_SHEET_NAME = "月次集計_データ";
+const SUMMARY_VIEW_SHEET_NAME = "月次集計";
+const SUMMARY_HEADERS = ["月","名前","出勤日数","勤務時間","時間(小数)","目標80H比","交通費支給日","往復交通費","交通費合計","アカデミー","ホームワイン","その他（WT業務）","更新日時"];
+const SUMMARY_TARGET_MINUTES = 80 * 60;
+
+function summaryTimeMs_(time) {
+  const d = new Date(indexTime_(time).replace(" ", "T") + "+09:00");
+  return isNaN(d.getTime()) ? 0 : d.getTime();
+}
+// Mirrors calculateMonthlyStats in index.html so the sheet and the app always show the same numbers.
+function monthlyStats_(logs, users, month) {
+  const stats = {}; (users || []).forEach(n => { stats[n] = {totalMinutes:0, daysCount:0, paidTransportDays:0, categoryMinutes:{}}; });
+  const groups = {};
+  logs.filter(l => l.month === month).forEach(log => {
+    const date = indexTime_(log.time).slice(0, 10);
+    if (!groups[log.name]) groups[log.name] = {};
+    if (!groups[log.name][date]) groups[log.name][date] = [];
+    groups[log.name][date].push(log);
+  });
+  Object.keys(groups).forEach(name => {
+    let minutes = 0, days = 0, paid = 0;
+    Object.keys(groups[name]).forEach(date => {
+      const dayLogs = groups[name][date].sort((a, b) => summaryTimeMs_(a.time) - summaryTimeMs_(b.time));
+      if (dayLogs.some(l => l.type === "出勤")) days++;
+      if (dayLogs.some(l => l.type === "出勤" && String(l.transport || "").indexOf("バス") === 0)) paid++;
+      const find = type => dayLogs.find(l => !l.category && l.type === type);
+      const pin = find("出勤"), pout = find("退勤"), bs = find("休憩開始"), be = find("休憩終了");
+      if (pin) {
+        const inMs = summaryTimeMs_(pin.time), outMs = pout ? summaryTimeMs_(pout.time) : 0;
+        if (outMs && outMs > inMs) {
+          let dayMs = outMs - inMs;
+          if (bs && be && summaryTimeMs_(be.time) > summaryTimeMs_(bs.time)) dayMs -= (summaryTimeMs_(be.time) - summaryTimeMs_(bs.time));
+          minutes += Math.max(0, Math.floor(dayMs / 60000));
+        }
+      }
+    });
+    WORK_CATEGORIES.forEach(category => {
+      let previous = null, ms = 0;
+      logs.filter(l => l.name === name && l.category === category).sort((a, b) => summaryTimeMs_(a.time) - summaryTimeMs_(b.time)).forEach(log => {
+        if (previous && log.month === month && ["退勤", "休憩開始"].includes(log.type) && ["出勤", "休憩終了"].includes(previous.type) && summaryTimeMs_(log.time) - summaryTimeMs_(previous.time) <= SHIFT_LIMIT_MS) ms += Math.max(0, summaryTimeMs_(log.time) - summaryTimeMs_(previous.time));
+        previous = log;
+      });
+      const categoryMinutes = Math.floor(ms / 60000);
+      if (stats[name]) stats[name].categoryMinutes[category] = categoryMinutes;
+      minutes += categoryMinutes;
+    });
+    logs.filter(l => l.name === name && l.month === month && l.category === "業務配分" && l.type === "退勤").forEach(l => (l.allocations || []).forEach(a => {
+      const item = ALLOCATION_ITEMS.find(i => i.id === a.id);
+      if (item && stats[name]) { minutes += a.minutes; stats[name].categoryMinutes[item.category] = (stats[name].categoryMinutes[item.category] || 0) + a.minutes; }
+    }));
+    if (stats[name]) { stats[name].totalMinutes = minutes; stats[name].daysCount = days; stats[name].paidTransportDays = paid; }
+  });
+  return stats;
+}
+function summaryRows_(ss, month) {
+  const data = readData_(ss, ss.getSheetByName(MASTER_SHEET_NAME), {scope:"month", month:month});
+  if (!data.ok) throw new Error(data.error || "read_failed");
+  const stats = monthlyStats_(data.logs, data.users, month), costs = data.transportationCosts || {};
+  const now = Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy-MM-dd HH:mm");
+  const rows = data.users.map(name => {
+    const st = stats[name], cost = Number(costs[name] || 0), cm = st.categoryMinutes;
+    return [month, name, st.daysCount, st.totalMinutes / 1440, Math.round(st.totalMinutes / 60 * 100) / 100, st.totalMinutes / SUMMARY_TARGET_MINUTES,
+      st.paidTransportDays, cost, cost * st.paidTransportDays, (cm["アカデミー"] || 0) / 1440, (cm["ホームワイン"] || 0) / 1440, (cm["その他（WT業務）"] || 0) / 1440, now];
+  });
+  rows.sort((a, b) => b[3] - a[3] || a[1].localeCompare(b[1], "ja"));
+  const sum = i => rows.reduce((s, r) => s + r[i], 0);
+  const totalMinutes = data.users.reduce((s, n) => s + stats[n].totalMinutes, 0);
+  rows.push([month, "合計", sum(2), totalMinutes / 1440, Math.round(totalMinutes / 60 * 100) / 100, "", sum(6), "", sum(8), sum(9), sum(10), sum(11), now]);
+  return rows;
+}
+function getOrCreateSummaryDataSheet_(ss) {
+  let sheet = ss.getSheetByName(SUMMARY_DATA_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(SUMMARY_DATA_SHEET_NAME);
+    sheet.appendRow(SUMMARY_HEADERS);
+    sheet.getRange(1, 1, 1, SUMMARY_HEADERS.length).setFontWeight("bold").setBackground("#e8eaf6");
+    sheet.setFrozenRows(1);
+    sheet.getRange("A:B").setNumberFormat("@"); sheet.getRange("M:M").setNumberFormat("@");
+    sheet.getRange("D:D").setNumberFormat("[h]:mm"); sheet.getRange("J:L").setNumberFormat("[h]:mm");
+    sheet.getRange("E:E").setNumberFormat("0.00"); sheet.getRange("F:F").setNumberFormat("0%"); sheet.getRange("H:I").setNumberFormat("#,##0");
+  }
+  return sheet;
+}
+function getOrCreateSummaryViewSheet_(ss) {
+  let sheet = ss.getSheetByName(SUMMARY_VIEW_SHEET_NAME);
+  if (sheet) return sheet;
+  sheet = ss.insertSheet(SUMMARY_VIEW_SHEET_NAME);
+  const D = "'" + SUMMARY_DATA_SHEET_NAME + "'!", month = "$B$1";
+  const totalOf = col => "=IFERROR(INDEX(FILTER(" + D + col + ":" + col + "," + D + "A:A=" + month + "," + D + "B:B=\"合計\"),1),0)";
+  sheet.getRange("A1").setValue("月次集計（対象月 →）").setFontWeight("bold").setFontSize(14);
+  sheet.getRange("B1").setNumberFormat("@").setFontWeight("bold").setFontSize(14).setHorizontalAlignment("center").setBackground("#fff8e1");
+  sheet.getRange("A2").setValue("B1で月を選ぶと切り替わります。数字はアプリのダッシュボードと同じ集計で、打刻のたびに自動で更新されます。このシートと「月次集計_データ」は手で編集しないでください。").setFontColor("#666666").setFontSize(9);
+  sheet.getRange("A4:E4").setValues([["合計勤務時間", "稼働メンバー", "延べ出勤日数", "交通費合計", "80H超え"]]).setFontWeight("bold").setFontSize(9).setFontColor("#555555").setBackground("#e8eaf6");
+  sheet.getRange("A5").setFormula(totalOf("D")).setNumberFormat("[h]:mm");
+  sheet.getRange("B5").setFormula("=COUNTIFS(" + D + "A:A," + month + "," + D + "B:B,\"<>合計\"," + D + "C:C,\">0\")&\" / \"&COUNTIFS(" + D + "A:A," + month + "," + D + "B:B,\"<>合計\")&\" 人\"");
+  sheet.getRange("C5").setFormula(totalOf("C")).setNumberFormat("0\"日\"");
+  sheet.getRange("D5").setFormula(totalOf("I")).setNumberFormat("¥#,##0");
+  sheet.getRange("E5").setFormula("=IFERROR(TEXTJOIN(\"、\",TRUE,FILTER(" + D + "B:B," + D + "A:A=" + month + "," + D + "B:B<>\"合計\"," + D + "F:F>=1)),\"なし\")").setFontColor("#c62828");
+  sheet.getRange("A5:E5").setFontWeight("bold").setFontSize(14);
+  sheet.getRange("A7:K7").setValues([SUMMARY_HEADERS.slice(1, 12)]).setFontWeight("bold").setBackground("#e8eaf6");
+  sheet.getRange("A8").setFormula("=IFERROR(FILTER({" + ["B","C","D","E","F","G","H","I","J","K","L"].map(c => D + c + "2:" + c).join(",") + "}," + D + "A2:A=" + month + "),\"（この月のデータはありません）\")");
+  sheet.getRange("B8:B200").setNumberFormat("0"); sheet.getRange("C8:C200").setNumberFormat("[h]:mm"); sheet.getRange("I8:K200").setNumberFormat("[h]:mm");
+  sheet.getRange("D8:D200").setNumberFormat("0.00"); sheet.getRange("E8:E200").setNumberFormat("0%"); sheet.getRange("G8:H200").setNumberFormat("¥#,##0");
+  sheet.getRange("Z2").setFormula("=IFERROR(SORT(UNIQUE(FILTER(" + D + "A2:A," + D + "A2:A<>\"\")),1,FALSE),\"\")");
+  sheet.getRange("B1").setDataValidation(SpreadsheetApp.newDataValidation().requireValueInRange(sheet.getRange("Z2:Z100"), true).setAllowInvalid(true).build());
+  sheet.setConditionalFormatRules([
+    SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied("=$E8>=1").setBackground("#ffcdd2").setRanges([sheet.getRange("E8:E200")]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied("=$E8>=0.8").setBackground("#fff9c4").setRanges([sheet.getRange("E8:E200")]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied("=$A8=\"合計\"").setBold(true).setBackground("#f5f5f5").setRanges([sheet.getRange("A8:K200")]).build()
+  ]);
+  sheet.hideColumns(26);
+  sheet.setFrozenRows(7);
+  sheet.setColumnWidth(1, 130);
+  try { ss.setActiveSheet(sheet); ss.moveActiveSheet(1); } catch (err) {}
+  return sheet;
+}
+// Replaces the month's block in the data sheet (newest month first) and returns how many rows it wrote.
+function writeMonthlySummary_(ss, month) {
+  const rows = summaryRows_(ss, month);
+  const sheet = getOrCreateSummaryDataSheet_(ss), width = SUMMARY_HEADERS.length, lastRow = sheet.getLastRow();
+  const existing = lastRow > 1 ? sheet.getRange(2, 1, lastRow - 1, width).getValues().filter(r => String(r[0]) && String(r[0]) !== month) : [];
+  const all = existing.concat(rows).sort((a, b) => String(b[0]).localeCompare(String(a[0])));
+  if (lastRow > 1) sheet.getRange(2, 1, lastRow - 1, width).clearContent();
+  if (all.length) sheet.getRange(2, 1, all.length, width).setValues(all);
+  const view = getOrCreateSummaryViewSheet_(ss);
+  if (!view.getRange("B1").getValue()) view.getRange("B1").setValue(month);
+  SpreadsheetApp.flush();
+  return rows.length;
+}
+function summaryMonthsFor_(action, params) {
+  const now = new Date(), current = Utilities.formatDate(now, "Asia/Tokyo", "yyyy-MM");
+  const months = [current];
+  const punched = String(params.month || deriveMonth_(params.time || "") || "");
+  if (action === "add" && /^\d{4}-\d{2}$/.test(punched)) months.push(punched);
+  else if (action !== "add") { const prev = new Date(now.getTime()); prev.setUTCDate(1); prev.setUTCMonth(prev.getUTCMonth() - 1); months.push(Utilities.formatDate(prev, "Asia/Tokyo", "yyyy-MM")); }
+  return months.filter((m, i) => months.indexOf(m) === i);
+}
+// Months that failed to refresh are remembered and retried on the next write, so the sheet never stays stale silently.
+function refreshMonthlySummary_(months) {
+  let props = null, dirty = [];
+  try { props = PropertiesService.getScriptProperties(); dirty = String(props.getProperty("summary:dirty") || "").split(",").filter(Boolean); } catch (err) {}
+  const pending = dirty.concat(months || []).filter((m, i, a) => /^\d{4}-\d{2}$/.test(m) && a.indexOf(m) === i), failed = [];
+  pending.forEach(month => {
+    try { writeMonthlySummary_(SpreadsheetApp.openById(SPREADSHEET_ID), month); } catch (err) { failed.push(month); }
+  });
+  try { if (props) props.setProperty("summary:dirty", failed.join(",")); } catch (err) {}
+  return {refreshed:pending.filter(m => failed.indexOf(m) === -1), failed:failed};
+}
+function rebuildSummary_(ss, params) {
+  if (!noticeAuth_(params)) return {ok:false, action:"summaryRebuild", error:"unauthorized", message:"管理者だけが実行できます。"};
+  const months = String(params.month || "").split(",").map(s => s.trim()).filter(m => /^\d{4}-(0[1-9]|1[0-2])$/.test(m));
+  if (!months.length) return {ok:false, action:"summaryRebuild", error:"invalid_month", message:"対象月を確認してください。"};
+  const written = {};
+  months.forEach(m => { written[m] = writeMonthlySummary_(ss, m); });
+  return {ok:true, action:"summaryRebuild", months:written};
 }
