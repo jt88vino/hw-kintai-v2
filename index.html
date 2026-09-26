@@ -4,6 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HW八王子事務所勤怠管理</title>
+  <meta name="theme-color" content="#ffffff" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="HW勤怠" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <!-- gas-sync-stable-jsonp-first-20260618 -->
   <style>
     :root {
@@ -16,7 +24,7 @@
     button,input,select,textarea{font:inherit}
     button{cursor:pointer;border:0}
     button:disabled{cursor:not-allowed;opacity:.55}
-    .app{min-height:100vh;padding-bottom:86px}
+    .app{min-height:100vh;padding-bottom:calc(86px + env(safe-area-inset-bottom, 0px))}
     .header{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line);box-shadow:0 1px 8px rgba(15,23,42,.04)}
     .header-inner{max-width:480px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:flex-start;gap:12px}
     .brand{display:flex;align-items:center;gap:10px;min-width:0}.brand-icon{background:var(--indigo);color:#fff;width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font-weight:900;position:relative}.brand h1{font-size:15px;line-height:1.2;margin:0;font-weight:900}.brand p{margin:3px 0 0;color:var(--muted);font-size:11px;font-weight:700}.timebox{text-align:right;white-space:nowrap}.timebox span{display:block;font-size:10px;color:#94a3b8;font-weight:800}.timebox b{display:inline-block;font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#f1f5f9;border-radius:8px;padding:4px 7px;color:#334155}
@@ -29,7 +37,7 @@
     .month-select{max-width:165px;font-size:14px;color:var(--indigo);font-weight:950}.member-status{display:flex;flex-direction:column;gap:9px;max-height:270px;overflow:auto}.member-row{background:#f8fafc;border:1px solid var(--line);border-radius:14px;padding:11px 12px;display:flex;align-items:center;justify-content:space-between}.member-row b{display:block;font-size:13px}.member-row small{display:block;color:#94a3b8;font-size:10px;font-weight:800;margin-top:3px}.status-pill{border:1px solid;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:950}.work{background:#ecfdf5;color:#047857;border-color:#a7f3d0}.rest{background:#fffbeb;color:#b45309;border-color:#fde68a}.left{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}.none{background:#f1f5f9;color:#475569;border-color:#cbd5e1}
     .stats-list{display:flex;flex-direction:column;gap:10px;max-height:480px;overflow:auto}.stat-card{background:#f8fafc;border:1px solid var(--line);border-radius:14px;padding:12px}.stat-head{display:flex;justify-content:space-between;gap:8px}.stat-name{font-size:13px;font-weight:950}.stat-name.over{color:var(--rose)}.stat-meta{font-size:10px;color:#64748b;font-weight:800;line-height:1.65}.stat-num{text-align:right}.stat-num b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--indigo);font-size:17px}.stat-num.over b{color:var(--rose)}.money{font-size:10px;color:#64748b;font-weight:800}.bar{height:7px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin-top:9px}.bar span{display:block;height:100%;background:var(--indigo);border-radius:99px}.bar span.warn{background:#f59e0b}.bar span.danger{background:#e11d48}.table-wrap{overflow:auto}.data-table{width:100%;border-collapse:collapse;font-size:12px}.data-table th{color:#94a3b8;text-align:left;font-size:10px;padding:0 6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}.data-table td{padding:9px 6px;border-bottom:1px solid #f1f5f9;vertical-align:top}.data-table td:last-child,.data-table th:last-child{text-align:right}.truncate{max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .admin-banner{background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:15px;padding:12px;display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:900}.notice{font-size:11px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:13px;padding:11px;line-height:1.6}.settings-list{border:1px solid var(--line);border-radius:14px;overflow:auto;max-height:350px}.settings-row{padding:11px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #f1f5f9}.settings-row:last-child{border-bottom:0}.settings-user-main{min-width:0}.settings-user-main b{display:block;word-break:break-word}.settings-user-meta{display:flex;align-items:center;gap:7px;margin-top:5px}.member-add-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:12px}.member-add-btn{background:var(--indigo);color:#fff;border-radius:13px;padding:0 16px;font-size:12px;font-weight:950;white-space:nowrap}.member-remove-btn{background:#fff1f2;color:#be123c;border:1px solid #fecdd3;border-radius:9px;padding:7px 9px;font-size:11px;font-weight:950;white-space:nowrap}.member-remove-btn:hover{background:#ffe4e6}.member-help{font-size:10px;color:#64748b;line-height:1.55;margin:8px 0 0}.yen{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#f1f5f9;border-radius:8px;padding:5px 8px;font-size:12px;font-weight:950}.debug{font-size:11px;color:#64748b;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:10px;line-height:1.55;word-break:break-all;display:none}.debug.show{display:block}
-    .modal{position:fixed;inset:0;background:rgba(15,23,42,.62);backdrop-filter:blur(3px);z-index:100;display:none;align-items:center;justify-content:center;padding:18px}.modal.show{display:flex}.modal-box{background:#fff;border:1px solid var(--line);border-radius:26px;box-shadow:0 25px 50px rgba(15,23,42,.25);padding:20px;width:100%;max-width:380px}.modal-head{display:flex;align-items:center;gap:10px;border-radius:16px;padding:12px;margin-bottom:14px}.modal-head.info{background:#eef2ff;color:#3730a3}.modal-head.warn{background:#fff1f2;color:#be123c}.modal-head h4{margin:0;color:#1e293b;font-size:14px;font-weight:950}.confirm-box{background:#f8fafc;border:1px solid #eef2f7;border-radius:15px;padding:12px;font-size:13px;display:flex;flex-direction:column;gap:8px;margin-bottom:12px}.confirm-box span:last-child{font-weight:950}.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.btn{border-radius:13px;padding:12px 10px;font-size:13px;font-weight:950}.btn-gray{background:#f1f5f9;color:#475569}.btn-indigo{background:var(--indigo);color:#fff}.btn-rose{background:var(--rose);color:#fff}.err-text{font-size:11px;color:var(--rose);font-weight:800;text-align:center;margin-top:6px}.footer{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fff;border-top:1px solid var(--line);box-shadow:0 -8px 20px rgba(15,23,42,.06)}.footer-inner{max-width:480px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;padding:8px}.nav-btn{background:#fff;color:#94a3b8;border-radius:14px;padding:8px 3px;font-size:10px;font-weight:900;display:flex;flex-direction:column;align-items:center;gap:4px}.nav-btn.active{color:var(--indigo);background:#eef2ff}.nav-btn .nicon{font-size:19px}.startup{max-width:480px;margin:18px auto;background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;color:#475569;font-size:13px;line-height:1.6}.startup b{color:#1e293b}
+    .modal{position:fixed;inset:0;background:rgba(15,23,42,.62);backdrop-filter:blur(3px);z-index:100;display:none;align-items:center;justify-content:center;padding:18px}.modal.show{display:flex}.modal-box{background:#fff;border:1px solid var(--line);border-radius:26px;box-shadow:0 25px 50px rgba(15,23,42,.25);padding:20px;width:100%;max-width:380px}.modal-head{display:flex;align-items:center;gap:10px;border-radius:16px;padding:12px;margin-bottom:14px}.modal-head.info{background:#eef2ff;color:#3730a3}.modal-head.warn{background:#fff1f2;color:#be123c}.modal-head h4{margin:0;color:#1e293b;font-size:14px;font-weight:950}.confirm-box{background:#f8fafc;border:1px solid #eef2f7;border-radius:15px;padding:12px;font-size:13px;display:flex;flex-direction:column;gap:8px;margin-bottom:12px}.confirm-box span:last-child{font-weight:950}.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.btn{border-radius:13px;padding:12px 10px;font-size:13px;font-weight:950}.btn-gray{background:#f1f5f9;color:#475569}.btn-indigo{background:var(--indigo);color:#fff}.btn-rose{background:var(--rose);color:#fff}.err-text{font-size:11px;color:var(--rose);font-weight:800;text-align:center;margin-top:6px}.footer{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fff;border-top:1px solid var(--line);box-shadow:0 -8px 20px rgba(15,23,42,.06);padding-bottom:env(safe-area-inset-bottom, 0px)}.footer-inner{max-width:480px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;padding:8px}.nav-btn{background:#fff;color:#94a3b8;border-radius:14px;padding:8px 3px;font-size:10px;font-weight:900;display:flex;flex-direction:column;align-items:center;gap:4px}.nav-btn.active{color:var(--indigo);background:#eef2ff}.nav-btn .nicon{font-size:19px}.startup{max-width:480px;margin:18px auto;background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;color:#475569;font-size:13px;line-height:1.6}.startup b{color:#1e293b}
     .modal-box{max-height:92vh;overflow-y:auto}.allocation-item{border:1px solid #dbe3ef;border-radius:12px;padding:12px;margin:12px 0;background:#fff}.allocation-item h4{margin:0 0 4px}.allocation-item p{font-size:12px;line-height:1.6;color:#64748b}.allocation-time{display:flex;gap:12px;margin:8px 0}.allocation-time label{flex:1}.allocation-item input,.allocation-item textarea{box-sizing:border-box;width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px}.allocation-total{position:sticky;top:0;background:#eef2ff;padding:12px;font-weight:700;border-radius:8px;z-index:2}
     .footer-inner{grid-template-columns:repeat(4,1fr)}
     .shift-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
@@ -140,6 +148,7 @@
           <div class="row" style="margin-bottom:12px"><h3 class="card-title" style="margin:0">⏱ 直近の打刻ログ</h3><button id="refreshBtn" class="mini-btn">更新 ⟳</button></div>
           <div id="recentLogs" class="log-list"></div>
         </div>
+        <div id="installTip" class="card hidden"><div class="row" style="align-items:flex-start;gap:10px"><div style="min-width:0"><b style="font-size:13px">📱 ホーム画面に追加できます</b><p class="member-help" style="margin:4px 0 0">スマホのホーム画面のアイコンから、アプリのように1回で開けます。</p></div><button id="installDismiss" class="mini-btn" type="button" style="flex:none" aria-label="この案内を閉じる">✕</button></div><button id="installBtn" class="btn btn-indigo" type="button" style="margin-top:10px;width:100%">追加のしかたを見る</button></div>
       </section>
 
       <section id="shiftTab" class="tab stack fade hidden">
@@ -163,6 +172,7 @@
 
       <section id="settingsTab" class="tab stack fade hidden">
         <div id="settingsStatus" class="status"></div>
+        <div class="card row" style="gap:10px"><div style="min-width:0"><b style="font-size:13px">📱 ホーム画面に追加</b><p class="member-help" style="margin:4px 0 0">スマホのホーム画面から、アプリのように開けます。</p></div><button id="installHelp" class="mini-btn" type="button" style="flex:none">やり方</button></div>
         <div id="loginCard" class="card">
           <div style="text-align:center;margin-bottom:14px"><div style="font-size:30px">⚙️</div><h3 style="margin:6px 0 4px;font-size:18px">管理者認証</h3><p style="font-size:12px;color:#64748b;margin:0">設定を開くには、管理者パスワードを入力してください。</p></div>
           <form id="adminLogin" class="stack"><input type="password" id="adminPassword" placeholder="パスワードを入力" style="text-align:center;font-size:18px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace"><button class="btn btn-indigo" type="submit">認証</button></form>
@@ -210,6 +220,7 @@
       <div id="shiftModalError" class="err-text hidden"></div>
     </div>
     <div class="modal-actions"><button id="shiftCancel" class="btn btn-gray" type="button">キャンセル</button><button id="shiftSave" class="btn btn-indigo" type="button">登録する</button></div></div></div>
+  <div id="installModal" class="modal"><div class="modal-box"><div class="modal-head info"><span style="font-size:22px">📱</span><div><h4>ホーム画面に追加</h4><div style="font-size:11px;color:#64748b;font-weight:800">アイコンから、アプリのように開けます</div></div></div><div id="installSteps" class="confirm-box" style="font-size:13px"></div><div class="modal-actions" style="grid-template-columns:1fr"><button id="installClose" class="btn btn-gray" type="button">閉じる</button></div></div></div>
   <div id="fixModal" class="modal"><div class="modal-box shift-form"><div class="modal-head warn"><span style="font-size:22px">✏️</span><div><h4>打刻の修正依頼</h4><div style="font-size:11px;color:#64748b;font-weight:800">押し忘れた打刻を、あとから正しい時刻で入れます</div></div></div>
     <div class="stack" style="margin-top:12px">
       <div class="fix-banner">入れた打刻はすぐ勤怠に反映されます。修正した打刻はアプリとスプレッドシートに<b>赤字</b>で残り、管理者が確認できます。</div>
@@ -461,6 +472,13 @@
       $('shiftNext').addEventListener('click', ()=>{ state.shiftMonth=addMonths(state.shiftMonth,1); state.shiftSelectedDay=''; renderShift(); loadShiftMonth(state.shiftMonth); });
       $('shiftAddBtn').addEventListener('click', ()=>openShiftModal(state.shiftSelectedDay||todayYmd(), null));
       $('eventAdd').addEventListener('click', ()=>openShiftModal(todayYmd(), null, {kinds:['業務']}));
+      $('installBtn').addEventListener('click', startInstall);
+      $('installHelp').addEventListener('click', showInstallSteps);
+      $('installClose').addEventListener('click', ()=>$('installModal').classList.remove('show'));
+      $('installDismiss').addEventListener('click', ()=>{ safeSet('attendance_install_tip','done'); renderInstallTip(); });
+      // Android Chrome offers its own install dialog; keep it for the button instead of the browser's bar.
+      window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); installPrompt=e; renderInstallTip(); });
+      window.addEventListener('appinstalled', ()=>{ installPrompt=null; safeSet('attendance_install_tip','done'); renderInstallTip(); });
       $('fixOpen').addEventListener('click', ()=>openFixModal());
       $('fixAlertBtn').addEventListener('click', e=>openFixModal({type:'退勤',date:e.currentTarget.dataset.date||''}));
       $('fixCancel').addEventListener('click', closeFixModal);
@@ -845,6 +863,7 @@
       renderTodayShifts();
       renderEvents();
       renderRecentLogs();
+      renderInstallTip();
     }
     function renderTransportChoice(){
       $('transportBus').classList.toggle('active', state.punchTransport.indexOf('バス')===0);
@@ -1713,6 +1732,34 @@
       }
     }
 
+    // ===== ホーム画面に追加 =====
+    let installPrompt=null;
+    function isStandalone(){ try{ return (typeof window.matchMedia==='function' && window.matchMedia('(display-mode: standalone)').matches) || (typeof navigator!=='undefined' && navigator.standalone===true); }catch(e){ return false; } }
+    function isTouchDevice(){ try{ return typeof window.matchMedia==='function' && window.matchMedia('(pointer: coarse)').matches; }catch(e){ return false; } }
+    function deviceUA(){ return typeof navigator!=='undefined' ? String(navigator.userAgent||'') : ''; }
+    function isIOSDevice(){ return /iPhone|iPad|iPod/.test(deviceUA()) || (typeof navigator!=='undefined' && navigator.platform==='MacIntel' && navigator.maxTouchPoints>1); }
+    // Shown on phones and tablets until the app is added from the home screen or the guide is closed.
+    function renderInstallTip(){
+      const tip=$('installTip'); if(!tip) return;
+      tip.classList.toggle('hidden', isStandalone() || !isTouchDevice() || safeGet('attendance_install_tip','')==='done');
+      $('installBtn').textContent = installPrompt ? 'ホーム画面に追加する' : '追加のしかたを見る';
+    }
+    function installStepsHtml(){
+      const ios=['この画面をSafariで開きます。','共有ボタン（四角から矢印が出たマーク）をタップします。見当たらないときは、アドレスバーの「…」から「共有」を選びます。','「ホーム画面に追加」を選びます。「Webアプリとして開く」があればオンのまま、右上の「追加」をタップします。'];
+      const android=['この画面をChromeで開きます。','右上の「︙」をタップします。','「ホーム画面に追加」または「アプリをインストール」を選び、「追加」をタップします。'];
+      const list=a=>`<ol style="margin:4px 0 0;padding-left:20px;line-height:1.7">${a.map(t=>`<li>${esc(t)}</li>`).join('')}</ol>`;
+      const tail='<p class="member-help" style="margin:6px 0 0">ホーム画面の「HW勤怠」から開きます。更新は右上の「⟳ 更新」で行えます。</p>';
+      if(/Android/.test(deviceUA())) return `<b>Android</b>${list(android)}${tail}`;
+      if(isIOSDevice()) return `<b>iPhone・iPad</b>${list(ios)}${tail}`;
+      return `<b>iPhone・iPad</b>${list(ios)}<b style="margin-top:6px">Android</b>${list(android)}${tail}`;
+    }
+    function showInstallSteps(){ $('installSteps').innerHTML=installStepsHtml(); $('installModal').classList.add('show'); }
+    async function startInstall(){
+      if(!installPrompt){ showInstallSteps(); return; }
+      const p=installPrompt; installPrompt=null;
+      try{ await p.prompt(); const choice=await p.userChoice; if(choice && choice.outcome==='accepted') safeSet('attendance_install_tip','done'); }catch(e){}
+      renderInstallTip();
+    }
     // ===== 修正依頼（押し忘れた打刻をあとから入れる） =====
     // 入れた打刻はすぐ勤怠に反映され、アプリとスプレッドシートの両方で赤字（【修正】）として残る。
     const FIX_TYPES=['出勤','退勤','休憩開始','休憩終了'];
