@@ -47,6 +47,14 @@
     .tag.off{background:#e5e7eb;color:#4b5563}
     .kpi-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.kpi{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:10px 11px;min-width:0}.kpi small{display:block;font-size:10px;color:#64748b;font-weight:900}.kpi b{display:block;font-size:18px;font-weight:950;color:#1e293b;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.3;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.kpi b span{font-size:11px;color:#64748b;font-weight:900;margin:0 1px}.kpi.accent b{color:var(--indigo)}.kpi.over b{color:var(--rose)}.summary-sub{font-size:11px;font-weight:900;color:#475569;margin:14px 0 7px}.summary-note{font-size:11px;font-weight:900;margin-top:10px;line-height:1.5}.rank-list{display:flex;flex-direction:column;gap:7px}.rank-row{display:grid;grid-template-columns:minmax(48px,auto) minmax(0,1fr) auto;gap:8px;align-items:center}.rank-name{font-size:12px;font-weight:950;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:78px}.rank-name.over{color:var(--rose)}.rank-bar{height:9px;background:#e2e8f0;border-radius:99px;overflow:hidden}.rank-bar span{display:block;height:100%;background:var(--indigo);border-radius:99px}.rank-bar span.warn{background:#f59e0b}.rank-bar span.danger{background:#e11d48}.rank-val{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:950;color:#334155;white-space:nowrap;text-align:right;line-height:1.2}.rank-val.over{color:var(--rose)}.rank-val small{display:block;font-family:inherit;font-size:9px;color:#94a3b8;font-weight:900;margin-top:2px}.seg-bar{display:flex;height:12px;border-radius:99px;overflow:hidden;background:#e2e8f0;margin:0 0 8px}.seg-bar span{display:block;height:100%}.seg-legend{display:flex;flex-wrap:wrap;gap:5px 12px;font-size:10px;font-weight:900;color:#475569;line-height:1.5}.seg-legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px;vertical-align:-1px}
     .notice-card{background:#fffbeb;border-color:#fcd34d}.notice-item{padding:8px 0;border-bottom:1px dashed #fde68a;font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-word}.notice-item:last-child{border-bottom:0}.notice-meta{font-size:10px;color:#92400e;font-weight:800;margin-top:2px}
+    .fix-link{background:none;border:0;padding:0;margin-top:10px;color:#be123c;font-size:12px;font-weight:900;text-decoration:underline;cursor:pointer;display:block}
+    .fix-alert{margin-top:10px;background:#fff1f2;border:1px solid #fecdd3;color:#9f1239;border-radius:12px;padding:10px 12px;font-size:12px;font-weight:900;line-height:1.55;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+    .fix-banner{background:#fff1f2;border:1px solid #fecdd3;color:#9f1239;border-radius:10px;padding:9px 10px;font-size:12px;font-weight:800;line-height:1.6}
+    .fix-preview{font-size:12px;font-weight:800;color:#334155;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;padding:9px 10px;line-height:1.6}.fix-preview:empty{display:none}
+    .tag.fix{background:#fee2e2;color:#b91c1c}
+    .log-item.corrected{border-color:#fecaca;background:#fff5f5}.log-item.corrected .name,.log-item.corrected .log-time,.log-item.corrected .memo{color:#b91c1c}
+    .data-table tr.corrected td{color:#b91c1c}
+    .event-row{display:flex;align-items:flex-start;gap:8px}.event-actions{display:flex;gap:4px;flex:none}
 </style>
 </head>
 <body>
@@ -85,7 +93,7 @@
           </div>
         </div>
         <div id="noticeCard" class="card notice-card hidden"><h3 class="card-title">📢 お知らせ</h3><div id="noticeList"></div></div>
-        <div id="eventCard" class="card notice-card hidden"><button id="eventToggle" class="card-toggle" type="button" aria-expanded="false" aria-controls="eventBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📌 予定・連絡（今日から1週間）</h3><div id="eventSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><div id="eventBody" class="hidden" style="margin-top:8px"><div id="eventList"></div><p class="member-help" style="margin:8px 0 0">登録・変更はシフトタブの日付から。</p></div></div>
+        <div id="eventCard" class="card notice-card"><div class="row" style="align-items:flex-start;gap:8px"><button id="eventToggle" class="card-toggle" style="flex:1;min-width:0" type="button" aria-expanded="false" aria-controls="eventBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📌 予定・連絡（今日から1週間）</h3><div id="eventSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><button id="eventAdd" class="mini-btn" type="button" style="flex:none">＋ 追加</button></div><div id="eventBody" class="hidden" style="margin-top:8px"><div id="eventList"></div><p class="member-help" style="margin:8px 0 0">「＋ 追加」から登録できます。✏️ で変更、🗑 で削除（誰でも操作できます）。</p></div></div>
         <div id="todayShiftCard" class="card hidden"><button id="todayShiftToggle" class="card-toggle" type="button" aria-expanded="false" aria-controls="todayShiftBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📅 今日の出勤予定</h3><div id="todayShiftSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><div id="todayShiftBody" class="hidden" style="margin-top:8px"><div id="todayShiftList" class="log-list" style="max-height:none"></div></div></div>
         <div id="statusMessage" class="status"></div>
         <div id="pendingPunchCard" class="card hidden" role="status" aria-live="polite"><p id="pendingPunchText" style="margin:0 0 10px"></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="resumePunch" class="mini-btn" type="button">保存確認・再送</button><button id="discardPunch" class="mini-btn" type="button">取り消す</button></div></div>
@@ -124,6 +132,8 @@
           </div>
           <p id="punchState" class="member-help" style="margin:10px 0 0" role="status" aria-live="polite"></p>
           <p id="punchShiftLine" class="member-help hidden" style="margin:6px 0 0"></p>
+          <div id="fixAlert" class="fix-alert hidden" role="status"><span id="fixAlertText"></span><button id="fixAlertBtn" class="mini-btn" type="button">退勤を入力する</button></div>
+          <button id="fixOpen" class="fix-link hidden" type="button">✏️ 押し忘れた打刻の修正依頼</button>
         </div>
         <div id="recentCard" class="card relative">
           <div class="sync-cover"><div class="spinner"></div></div>
@@ -191,7 +201,7 @@
   <div id="shiftDayModal" class="modal"><div class="modal-box" style="max-width:420px"><div class="row" style="align-items:center;margin-bottom:10px"><h4 id="shiftDayTitle" style="margin:0;font-size:16px"></h4><div style="display:flex;gap:6px"><button id="shiftAddBtn" class="mini-btn" type="button">＋ 追加</button><button id="shiftDayClose" class="mini-btn" type="button">閉じる</button></div></div><div id="shiftDayList" class="log-list" style="max-height:62vh"></div></div></div>
   <div id="shiftModal" class="modal"><div class="modal-box shift-form"><div class="modal-head info"><span style="font-size:22px">📅</span><div><h4 id="shiftModalTitle">予定を追加</h4><div style="font-size:11px;color:#64748b;font-weight:800">全員の画面に反映されます</div></div></div>
     <div class="stack" style="margin-top:12px">
-      <div><label>種類</label><div id="shiftKindChoices" class="choice-grid shift-kinds"></div></div>
+      <div id="shiftKindRow"><label>種類</label><div id="shiftKindChoices" class="choice-grid shift-kinds"></div></div>
       <div id="shiftNameRow"><label for="shiftName">名前</label><select id="shiftName"></select></div>
       <div class="allocation-time"><label style="flex:1">開始日<input id="shiftStart" type="date"></label><label id="shiftEndWrap" style="flex:1">終了日<input id="shiftEnd" type="date"></label></div>
       <div id="shiftTimeRow"><label>時間</label><div id="shiftPatterns" class="choice-grid shift-kinds"></div><div class="allocation-time" style="margin-top:6px"><label style="flex:1">開始<input id="shiftFrom" type="time"></label><label style="flex:1">終了<input id="shiftTo" type="time"></label></div></div>
@@ -200,6 +210,18 @@
       <div id="shiftModalError" class="err-text hidden"></div>
     </div>
     <div class="modal-actions"><button id="shiftCancel" class="btn btn-gray" type="button">キャンセル</button><button id="shiftSave" class="btn btn-indigo" type="button">登録する</button></div></div></div>
+  <div id="fixModal" class="modal"><div class="modal-box shift-form"><div class="modal-head warn"><span style="font-size:22px">✏️</span><div><h4>打刻の修正依頼</h4><div style="font-size:11px;color:#64748b;font-weight:800">押し忘れた打刻を、あとから正しい時刻で入れます</div></div></div>
+    <div class="stack" style="margin-top:12px">
+      <div class="fix-banner">入れた打刻はすぐ勤怠に反映されます。修正した打刻はアプリとスプレッドシートに<b>赤字</b>で残り、管理者が確認できます。</div>
+      <div><label>名前</label><div id="fixName" style="font-size:15px;font-weight:950;color:#1e293b"></div></div>
+      <div><label>区分</label><div id="fixTypes" class="choice-grid" style="grid-template-columns:repeat(4,1fr);gap:6px"></div></div>
+      <div class="allocation-time"><label style="flex:1">日付<input id="fixDate" type="date"></label><label style="flex:1">時刻<input id="fixTime" type="time"></label></div>
+      <div id="fixTransportRow" class="hidden"><label>交通機関</label><div class="choice-grid"><button id="fixBus" class="choice" type="button">🚌 バス・電車</button><button id="fixBike" class="choice" type="button">🚲 自転車・他</button></div></div>
+      <div><label for="fixReason">理由（任意）</label><input id="fixReason" type="text" maxlength="100" placeholder="例：退勤を押し忘れました"></div>
+      <div id="fixPreview" class="fix-preview" role="status" aria-live="polite"></div>
+      <div id="fixError" class="err-text hidden"></div>
+    </div>
+    <div class="modal-actions"><button id="fixCancel" class="btn btn-gray" type="button">キャンセル</button><button id="fixNext" class="btn btn-rose" type="button">内容を確認する</button></div></div></div>
   <div id="confirmModal" class="modal"><div class="modal-box"><div class="modal-head info"><span style="font-size:22px">⏱</span><div><h4>打刻のご確認</h4><div style="font-size:11px;color:#64748b;font-weight:800">内容を今一度ご確認ください</div></div></div><div id="confirmDetails" class="confirm-box"></div><div class="modal-actions"><button id="cancelPunch" class="btn btn-gray">キャンセル</button><button id="executePunch" class="btn btn-indigo">はい、打刻する</button></div></div></div>
   <div id="deleteModal" class="modal"><div class="modal-box"><div class="modal-head warn"><span style="font-size:22px">⚠️</span><div><h4>打刻取り消し確認</h4><div style="font-size:11px;color:#64748b;font-weight:800">消していいですか？ 復元できません。</div></div></div><div id="deleteDetails" class="confirm-box"></div><div id="deletePasswordBox"><label for="deletePassword" style="font-size:11px">管理者パスワードを入力して削除を実行</label><input id="deletePassword" type="password" placeholder="パスワード" style="text-align:center"></div><div id="deleteError" class="err-text hidden"></div><div id="deleteProgress" role="status" aria-live="polite" style="font-size:12px;line-height:1.6;margin-top:10px"></div><div class="modal-actions"><button id="cancelDelete" class="btn btn-gray">やめる</button><button id="executeDelete" class="btn btn-rose">削除を実行する</button></div></div></div>
 
@@ -261,6 +283,9 @@
       shiftOps: restoreShiftOps(),
       shiftEditing: null,
       shiftKind: 'シフト',
+      shiftKinds: [],
+      fixDraft: null,
+      fixMonths: {},
       notices: sanitizeNotices(safeGet('attendance_notices', [])),
       collapsed: Object.assign({events:true, todayShift:true, monthDetail:true}, safeObject(safeGet('attendance_collapsed', {}))),
       appEtag: '',
@@ -366,7 +391,9 @@
         transport: String(log.transport || ''),
         memo: String(log.memo || ''),
         category: String(log.category || ''),
-        allocations: Array.isArray(log.allocations)?log.allocations:[]
+        allocations: Array.isArray(log.allocations)?log.allocations:[],
+        corrected: String(log.corrected || ''),   // 修正依頼: set when the punch was entered afterwards
+        fixReason: String(log.fixReason || '')
       };
     }
     function sanitizeLogs(arr){
@@ -433,6 +460,15 @@
       $('shiftPrev').addEventListener('click', ()=>{ state.shiftMonth=addMonths(state.shiftMonth,-1); state.shiftSelectedDay=''; renderShift(); loadShiftMonth(state.shiftMonth); });
       $('shiftNext').addEventListener('click', ()=>{ state.shiftMonth=addMonths(state.shiftMonth,1); state.shiftSelectedDay=''; renderShift(); loadShiftMonth(state.shiftMonth); });
       $('shiftAddBtn').addEventListener('click', ()=>openShiftModal(state.shiftSelectedDay||todayYmd(), null));
+      $('eventAdd').addEventListener('click', ()=>openShiftModal(todayYmd(), null, {kinds:['業務']}));
+      $('fixOpen').addEventListener('click', ()=>openFixModal());
+      $('fixAlertBtn').addEventListener('click', e=>openFixModal({type:'退勤',date:e.currentTarget.dataset.date||''}));
+      $('fixCancel').addEventListener('click', closeFixModal);
+      $('fixNext').addEventListener('click', submitFix);
+      $('fixDate').addEventListener('change', e=>{ if(!state.fixDraft) return; state.fixDraft.date=e.target.value; loadFixMonth(e.target.value.slice(0,7)); renderFix(); });
+      ['input','change'].forEach(ev=>$('fixTime').addEventListener(ev, e=>{ if(!state.fixDraft) return; state.fixDraft.time=e.target.value; renderFix(); }));
+      $('fixBus').addEventListener('click', ()=>{ if(!state.fixDraft) return; state.fixDraft.transport='バス・電車（交通費あり）'; renderFix(); });
+      $('fixBike').addEventListener('click', ()=>{ if(!state.fixDraft) return; state.fixDraft.transport='自転車・その他（支給なし）'; renderFix(); });
       $('shiftDayClose').addEventListener('click', ()=>{ state.shiftDayOpen=false; renderShiftDay(); });
       $('shiftCancel').addEventListener('click', closeShiftModal);
       $('shiftSave').addEventListener('click', saveShiftEntry);
@@ -714,7 +750,7 @@
         state.readOnlyStartup=false;
         if(state.pendingPunch && !state.isPunchSubmitting && state.pendingPunch.gasUrl===state.gasUrl){
           const saved=state.logs.find(log=>log.id===state.pendingPunch.log.id);
-          if(saved) completePunch(state.pendingPunch.log,{ok:true,id:saved.id,memo:saved.memo,allocations:saved.allocations});
+          if(saved) completePunch(state.pendingPunch.log,{ok:true,id:saved.id,memo:saved.memo,allocations:saved.allocations,corrected:saved.corrected});
         }
         if(state.activeTab === 'dashboard') await loadSelectedMonth();
         if(reason === 'manual') showStatus('GAS同期が完了しました。', 'success');
@@ -801,9 +837,10 @@
       if(shiftLine){
         const ts = state.selectedUser ? todayShiftFor(state.selectedUser) : null;
         let text = ts ? `本日のシフト: ${ts.from}-${ts.to}` : '';
-        if(ts && shift && shift.state!=='off' && ts.to){ const over = clockMinutes(getJSTDateTime().display) - clockMinutes(ts.to); if(over>=60) text += ` ／ 終了から${Math.floor(over/60)}時間${over%60}分経っています。退勤を忘れていませんか？`; }
+        if(ts && shift && shift.state!=='off' && ts.to){ const over = clockMinutes(getJSTDateTime().display) - clockMinutes(ts.to); if(over>=60) text += ` ／ 終了から${Math.floor(over/60)}時間${over%60}分経っています。退勤を忘れていませんか？ 押し忘れた場合は下の「✏️ 修正依頼」から実際の時刻を入れられます。`; }
         shiftLine.textContent = text; shiftLine.classList.toggle('hidden', !text);
       }
+      renderFixEntry();
       renderTransportChoice();
       renderTodayShifts();
       renderEvents();
@@ -824,9 +861,9 @@
       if(!recent.length){ box.innerHTML = '<div class="empty">まだ打刻はありません。</div>'; return; }
       const pendingTag = s => s==='queued' ? '<span class="tag pending">⏳ 送信待ち</span>' : s==='sending' ? '<span class="tag pending">⏳ 保存確認中</span>' : s==='rejected' ? '<span class="tag unconfirmed">⚠️ 保存失敗</span>' : '<span class="tag unconfirmed">⚠️ 未確認</span>';
       box.innerHTML = recent.map(log => `
-        <div class="log-item${log.pending?' pending':''}">
-          <div class="log-main"><div class="log-line"><span class="name">${esc(log.name)}</span><span class="tag ${logTag(log.type)}">${esc(log.type)}</span>${log.pending?pendingTag(log.pending):''}${log.type==='出勤' && log.transport ? `<span class="transport">${log.transport.indexOf('バス')===0?'🚌 バス・電車':'🚲 自転車'}</span>`:''}</div>${log.memo ? `<p class="memo">Memo: ${esc(log.memo)}</p>`:''}</div>
-          <div class="row" style="gap:4px"><span class="log-time">${esc(getHHMM(log.time))}</span>${log.pending?'':`<button class="delete-btn" data-delete-id="${esc(log.id)}" title="削除">🗑</button>`}</div>
+        <div class="log-item${log.pending?' pending':''}${log.corrected?' corrected':''}">
+          <div class="log-main"><div class="log-line"><span class="name">${esc(log.name)}</span><span class="tag ${logTag(log.type)}">${esc(log.type)}</span>${log.corrected?'<span class="tag fix">✏️ 修正</span>':''}${log.pending?pendingTag(log.pending):''}${log.type==='出勤' && log.transport ? `<span class="transport">${log.transport.indexOf('バス')===0?'🚌 バス・電車':'🚲 自転車'}</span>`:''}</div>${log.memo ? `<p class="memo">Memo: ${esc(log.memo)}</p>`:''}</div>
+          <div class="row" style="gap:4px"><span class="log-time">${esc(log.corrected?shortWhen(log.time):getHHMM(log.time))}</span>${log.pending?'':`<button class="delete-btn" data-delete-id="${esc(log.id)}" title="削除">🗑</button>`}</div>
         </div>`).join('');
       box.querySelectorAll('[data-delete-id]').forEach(btn=>btn.addEventListener('click', ()=>requestDeleteLog(btn.dataset.deleteId,'recent')));
       box.querySelectorAll('.log-main').forEach((el,i)=>{
@@ -857,7 +894,8 @@
     }
     function calculateMonthlyStats(month){
       const logs=withPending(state.monthLogs || state.logs);
-      const stats = {}; state.users.forEach(n=>stats[n]={totalMinutes:0,daysCount:0,paidTransportDays:0,categoryMinutes:{}});
+      const stats = {}; state.users.forEach(n=>stats[n]={totalMinutes:0,daysCount:0,paidTransportDays:0,categoryMinutes:{},corrections:0});
+      logs.forEach(l=>{ if(l.month===month && l.corrected && stats[l.name]) stats[l.name].corrections++; });
       const groups = {};
       logs.filter(l=>l.month === month).forEach(log=>{
         const date = getDatePart(log.time); if(!groups[log.name]) groups[log.name]={}; if(!groups[log.name][date]) groups[log.name][date]=[]; groups[log.name][date].push(log);
@@ -902,13 +940,13 @@
       const rows=(users||[]).map(name=>{
         const st=stats[name]||{}; const minutes=Number(st.totalMinutes)||0, days=Number(st.daysCount)||0;
         const transport=Number(costs[name]||0)*(Number(st.paidTransportDays)||0); const ratio=Math.round(minutes/TARGET_MINUTES*100);
-        return {name, minutes, days, transport, ratio, over:minutes>=TARGET_MINUTES, warn:ratio>=80};
+        return {name, minutes, days, transport, ratio, over:minutes>=TARGET_MINUTES, warn:ratio>=80, corrections:Number(st.corrections)||0};
       });
       rows.sort((a,b)=>b.minutes-a.minutes || a.name.localeCompare(b.name,'ja'));
       const categories=WORK_CATEGORIES.map(category=>({category, minutes:rows.reduce((sum,r)=>sum+((((stats[r.name]||{}).categoryMinutes)||{})[category]||0),0)}));
       const categoryTotal=categories.reduce((sum,c)=>sum+c.minutes,0);
       categories.forEach(c=>{ c.share=categoryTotal?Math.round(c.minutes/categoryTotal*100):0; });
-      return {rows, memberCount:rows.length, activeCount:rows.filter(r=>r.days>0).length, totalMinutes:rows.reduce((sum,r)=>sum+r.minutes,0), totalDays:rows.reduce((sum,r)=>sum+r.days,0), totalTransport:rows.reduce((sum,r)=>sum+r.transport,0), overNames:rows.filter(r=>r.over).map(r=>r.name), idleNames:rows.filter(r=>r.minutes===0 && r.days===0).map(r=>r.name), categories, categoryTotal};
+      return {rows, memberCount:rows.length, activeCount:rows.filter(r=>r.days>0).length, totalMinutes:rows.reduce((sum,r)=>sum+r.minutes,0), totalDays:rows.reduce((sum,r)=>sum+r.days,0), totalTransport:rows.reduce((sum,r)=>sum+r.transport,0), overNames:rows.filter(r=>r.over).map(r=>r.name), totalCorrections:rows.reduce((sum,r)=>sum+r.corrections,0), idleNames:rows.filter(r=>r.minutes===0 && r.days===0).map(r=>r.name), categories, categoryTotal};
     }
     function renderMonthSummary(stats){
       const box=$('monthSummary'); if(!box) return;
@@ -918,9 +956,10 @@
       const over=s.overNames.length?`<div class="summary-note" style="color:var(--rose)">⚠ 80H超え: ${s.overNames.map(n=>esc(n)+'さん').join('、')}</div>`:'';
       const active=s.rows.filter(r=>r.minutes>0 || r.days>0);
       const idle=s.idleNames.length?`<div class="summary-note" style="color:#94a3b8">今月の勤務なし: ${s.idleNames.map(esc).join('、')}</div>`:'';
-      const rank=s.rows.length?`<div class="summary-sub">メンバー別（多い順・棒は目標80Hに対する割合）</div><div class="rank-list">${active.map(r=>`<div class="rank-row"><div class="rank-name ${r.over?'over':''}">${esc(r.name)}</div><div class="rank-bar"><span class="${r.over?'danger':r.warn?'warn':''}" style="width:${r.minutes>0?Math.max(2,Math.min(100,r.ratio)):0}%"></span></div><div class="rank-val ${r.over?'over':''}">${Math.floor(r.minutes/60)}時間${String(r.minutes%60).padStart(2,'0')}分<small>${r.days}日${r.transport?` ・ ¥${r.transport.toLocaleString()}`:''}</small></div></div>`).join('')}</div>`:'<div class="empty">メンバーが登録されていません。</div>';
+      const rank=s.rows.length?`<div class="summary-sub">メンバー別（多い順・棒は目標80Hに対する割合）</div><div class="rank-list">${active.map(r=>`<div class="rank-row"><div class="rank-name ${r.over?'over':''}">${esc(r.name)}</div><div class="rank-bar"><span class="${r.over?'danger':r.warn?'warn':''}" style="width:${r.minutes>0?Math.max(2,Math.min(100,r.ratio)):0}%"></span></div><div class="rank-val ${r.over?'over':''}">${Math.floor(r.minutes/60)}時間${String(r.minutes%60).padStart(2,'0')}分<small>${r.days}日${r.transport?` ・ ¥${r.transport.toLocaleString()}`:''}${r.corrections?` ・ ✏️${r.corrections}`:''}</small></div></div>`).join('')}</div>`:'<div class="empty">メンバーが登録されていません。</div>';
       const seg=s.categoryTotal?`<div class="summary-sub">業務別の内訳（${CATEGORY_USERS.filter(n=>state.users.includes(n)).join('・')}）</div><div class="seg-bar">${s.categories.filter(c=>c.minutes).map(c=>`<span style="flex:${c.minutes} 1 0;background:${CATEGORY_COLORS[c.category]||'#94a3b8'}" title="${esc(c.category)}"></span>`).join('')}</div><div class="seg-legend">${s.categories.map(c=>`<span><i style="background:${CATEGORY_COLORS[c.category]||'#94a3b8'}"></i>${esc(c.category)} ${Math.floor(c.minutes/60)}時間${c.minutes%60}分（${c.share}%）</span>`).join('')}</div>`:'';
-      box.innerHTML=kpis+over+rank+idle+seg;
+      const fixes=s.totalCorrections?`<div class="summary-note" style="color:var(--rose)">✏️ 修正依頼 ${s.totalCorrections}件: ${s.rows.filter(r=>r.corrections).map(r=>`${esc(r.name)}さん ${r.corrections}件`).join('、')}</div>`:'';
+      box.innerHTML=kpis+over+fixes+rank+idle+seg;
     }
     function renderDashboard(){
       renderEvents();
@@ -958,7 +997,7 @@
         card.appendChild(detail);
       });
       const filtered = withPending(state.monthLogs || state.logs).filter(l=>l.month === state.selectedMonth);
-      $('logsTable').innerHTML = filtered.length ? filtered.map(log=>`<tr><td><b>${esc(log.name)}</b></td><td><span class="tag ${logTag(log.type)}">${esc(log.type)}</span>${log.pending?' <span class="tag pending">⏳ 保存確認中</span>':''}</td><td>${log.type==='出勤' && log.transport ? `<span class="transport">${log.transport.indexOf('バス')===0?'🚌 バス・電車':'🚲 自転車'}</span>`:''}${log.memo?`<div class="memo truncate" title="${esc(log.memo)}">${esc(log.memo)}</div>`:''}</td><td style="white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#64748b">${esc(formatWithDayOfWeek(log.time))}</td><td>${log.pending?'':`<button class="delete-btn" data-delete-id="${esc(log.id)}">🗑</button>`}</td></tr>`).join('') : `<tr><td colspan="5" class="empty">${esc(state.selectedMonth.replace('-','年'))}月のデータはありません。</td></tr>`;
+      $('logsTable').innerHTML = filtered.length ? filtered.map(log=>`<tr${log.corrected?' class="corrected"':''}><td><b>${esc(log.name)}</b></td><td><span class="tag ${logTag(log.type)}">${esc(log.type)}</span>${log.corrected?' <span class="tag fix">✏️ 修正</span>':''}${log.pending?' <span class="tag pending">⏳ 保存確認中</span>':''}</td><td>${log.type==='出勤' && log.transport ? `<span class="transport">${log.transport.indexOf('バス')===0?'🚌 バス・電車':'🚲 自転車'}</span>`:''}${log.memo?`<div class="memo truncate" title="${esc(log.memo)}">${esc(log.memo)}</div>`:''}</td><td style="white-space:nowrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#64748b">${esc(formatWithDayOfWeek(log.time))}</td><td>${log.pending?'':`<button class="delete-btn" data-delete-id="${esc(log.id)}">🗑</button>`}</td></tr>`).join('') : `<tr><td colspan="5" class="empty">${esc(state.selectedMonth.replace('-','年'))}月のデータはありません。</td></tr>`;
       $('logsTable').querySelectorAll('[data-delete-id]').forEach(btn=>btn.addEventListener('click', ()=>requestDeleteLog(btn.dataset.deleteId)));
       $('logsTable').querySelectorAll('tr').forEach((row,i)=>{
         if(!filtered[i] || !filtered[i].category) return;
@@ -1032,18 +1071,24 @@
       box.innerHTML = `<b>起動診断</b><br>ログ件数: ${state.logs.length}<br>GAS URL: ${esc(state.gasUrl ? '設定あり' : '未設定')}<br>GAS同期方式: Google直接通信 / 送信と保存確認を並行処理<br>最後のGAS同期エラー: ${esc(state.lastSyncError || 'なし')}<br>localStorageログ: ${esc(String((localStorage.getItem('attendance_logs')||'').slice(0,180)))}${(localStorage.getItem('attendance_logs')||'').length>180?'...':''}`;
     }
 
-    function triggerPunchConfirmation(type){
+    function triggerPunchConfirmation(type, fix){
       if(state.isPunchSubmitting) return;
       if(headStuck()){resumePendingPunch();return;}
       if(!state.selectedUser){ showStatus('名前を選択してください。','error'); return; }
       const category = CATEGORY_USERS.includes(state.selectedUser) ? '業務配分' : '';
-      const fixedTime=getJSTDateTime();
+      // A 修正依頼 is checked at its own time against the member's record; a punch is checked now.
+      const fixedTime=fix ? fix.fixedTime : getJSTDateTime();
       // Punches still being confirmed count: the sheet will hold them by the time this one is sent.
-      const history=withPending(state.logs);
-      const shift=shiftStateOf(state.selectedUser).state;
-      if(type==='出勤' && shift!=='off'){ showStatus('すでに出勤しています。退勤してから、次の出勤を押してください。','error'); return; }
-      if(type==='休憩開始' && shift==='break'){ showStatus('休憩中です。「休憩終了」を押してください。','error'); return; }
-      if(type==='休憩終了' && shift==='working'){ showStatus('休憩中ではありません。','error'); return; }
+      const history=fix ? fixHistory(fixedTime.monthOnly) : withPending(state.logs);
+      if(fix){
+        const unfit=correctionFit(history,state.selectedUser,type,fixedTime.full);
+        if(unfit){ showStatus(unfit,'error'); return; }
+      } else {
+        const shift=shiftStateOf(state.selectedUser).state;
+        if(type==='出勤' && shift!=='off'){ showStatus('すでに出勤しています。退勤してから、次の出勤を押してください。','error'); return; }
+        if(type==='休憩開始' && shift==='break'){ showStatus('休憩中です。「休憩終了」を押してください。','error'); return; }
+        if(type==='休憩終了' && shift==='working'){ showStatus('休憩中ではありません。','error'); return; }
+      }
       const minutes=type==='出勤' ? null : shiftMinutes_(history,state.selectedUser,fixedTime.full);
       if(type!=='出勤' && minutes===null){
         // No shift is open within the limit: a clock-in is needed first, whether it was forgotten or is too old.
@@ -1053,13 +1098,15 @@
           : '出勤の記録が見つかりません。先に「出勤」を押してください。','error');
         return;
       }
-      state.confirmPunch = { userName:state.selectedUser, punchType:type, category, fixedTime, targetMinutes:category && type==='退勤' ? minutes : null, transport:(type==='出勤'||type==='退勤')?state.punchTransport:'', memo:(type==='出勤'||type==='退勤')?state.punchMemo:'' };
-      $('confirmDetails').innerHTML = `<div class="row"><span>お名前:</span><span>${esc(state.confirmPunch.userName)} さん</span></div><div class="row"><span>打刻区分:</span><span>${esc(type)}</span></div>${type==='出勤'?`<div class="row"><span>本日の交通機関:</span><span>${state.punchTransport.indexOf('バス')===0?'🚌 バス・電車利用':'🚲 自転車等'}</span></div>`:''}${state.confirmPunch.memo?`<div><span>連絡メモ・備考:</span><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:8px;margin-top:5px;word-break:break-word">${esc(state.confirmPunch.memo)}</div></div>`:''}`;
+      const transport=fix ? (type==='出勤' ? fix.transport : '') : ((type==='出勤'||type==='退勤')?state.punchTransport:'');
+      state.confirmPunch = { userName:state.selectedUser, punchType:type, category, fixedTime, targetMinutes:category && type==='退勤' ? minutes : null, transport, memo:fix ? '' : ((type==='出勤'||type==='退勤')?state.punchMemo:''), correction:fix ? {reason:fix.reason||''} : null, replaces:fix && fix.replaces || '' };
+      const fixBanner=fix ? `<div class="fix-banner">✏️ 修正依頼: <b>${esc(formatWithDayOfWeek(fixedTime.full))}</b> の${esc(type)}として記録します。すぐ勤怠に反映され、アプリとスプレッドシートに赤字で残ります。送信後に取り消すときは管理者に依頼してください。${fix.reason?`<br>理由: ${esc(fix.reason)}`:''}</div>` : '';
+      $('confirmDetails').innerHTML = fixBanner + `<div class="row"><span>お名前:</span><span>${esc(state.confirmPunch.userName)} さん</span></div><div class="row"><span>打刻区分:</span><span>${esc(type)}</span></div>${fix?`<div class="row"><span>打刻日時:</span><span>${esc(formatWithDayOfWeek(fixedTime.full))}</span></div>`:''}${type==='出勤'?`<div class="row"><span>${fix?'交通機関':'本日の交通機関'}:</span><span>${transport.indexOf('バス')===0?'🚌 バス・電車利用':'🚲 自転車等'}</span></div>`:''}${state.confirmPunch.memo?`<div><span>連絡メモ・備考:</span><div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:8px;margin-top:5px;word-break:break-word">${esc(state.confirmPunch.memo)}</div></div>`:''}`;
 
-      if(type==='退勤' && category) renderAllocationInputs(minutes);
+      if(type==='退勤' && category) renderAllocationInputs(minutes, !!fix);
       if(type==='退勤') $('confirmDetails').innerHTML += `<div><label for="checkoutMemo">補足・備考（任意）</label><textarea id="checkoutMemo" class="textarea" maxlength="1000" placeholder="例：講座の準備、受注対応、WT業務など">${esc(state.confirmPunch.memo)}</textarea></div>`;
       $('confirmDetails').innerHTML += '<div id="punchSendStatus" role="status" aria-live="polite"></div>';
-      $('executePunch').textContent='はい、打刻する';
+      $('executePunch').textContent=fix ? '修正依頼を送る' : 'はい、打刻する';
       $('cancelPunch').textContent='キャンセル';
       $('confirmModal').classList.add('show');
       if(category && type==='退勤') { $('confirmDetails').querySelectorAll('[data-allocation-input]').forEach(el=>el.addEventListener('input',updateAllocationTotal)); updateAllocationTotal(); }
@@ -1101,10 +1148,15 @@
     }
     function renderEvents(){
       const items=upcomingEvents(7), today=todayYmd();
-      const html=items.map(e=>`<div class="notice-item"><span class="tag event">${e.start<=today&&e.end>=today?'今日':esc(fmtDay(e.start))}${e.end!==e.start?`〜${esc(fmtDay(e.end))}`:''}</span> ${esc(e.label)}${e.memo?`<div class="notice-meta">${esc(e.memo)}</div>`:''}</div>`).join('');
+      const card=$('eventCard'), list=$('eventList'); if(!card||!list) return;
+      // Always shown: the ＋ 追加 button is where 予定・連絡 are entered.
+      const html=items.length ? items.map(e=>`<div class="notice-item event-row"><div style="min-width:0;flex:1"><span class="tag event">${e.start<=today&&e.end>=today?'今日':esc(fmtDay(e.start))}${e.end!==e.start?`〜${esc(fmtDay(e.end))}`:''}</span> ${esc(e.label)}${e.memo?`<div class="notice-meta">${esc(e.memo)}</div>`:''}</div>${e.pending?'<span class="tag pending">⏳</span>':`<div class="event-actions"><button class="mini-btn" type="button" data-event-edit="${esc(e.id)}" aria-label="${esc(e.label)}を変更">✏️</button><button class="mini-btn" type="button" data-event-delete="${esc(e.id)}" aria-label="${esc(e.label)}を削除">🗑</button></div>`}</div>`).join('') : '<div class="empty" style="padding:10px 4px">今日から1週間の予定・連絡はありません。</div>';
       const todays=items.filter(e=>e.start<=today&&e.end>=today).map(e=>e.label), next=items.find(e=>e.start>today);
-      const summary = !items.length ? '' : (todays.length ? `今日: ${todays.join('、')}` : (next ? `次: ${fmtDay(next.start)} ${next.label}` : '')) + `（${items.length}件）`;
-      [['eventCard','eventList','eventToggle','eventBody','eventSummary']].forEach(([c,l,t,b,sm])=>{ const card=$(c), list=$(l); if(!card||!list) return; card.classList.toggle('hidden',!items.length); list.innerHTML=html; applyCollapse(t,b,sm,!state.collapsed.events,summary); });
+      const summary = !items.length ? '予定なし（「＋ 追加」から登録できます）' : (todays.length ? `今日: ${todays.join('、')}` : (next ? `次: ${fmtDay(next.start)} ${next.label}` : '')) + `（${items.length}件）`;
+      card.classList.remove('hidden'); list.innerHTML=html;
+      list.querySelectorAll('[data-event-edit]').forEach(b=>b.addEventListener('click',()=>{ const e=findShiftEntry(b.dataset.eventEdit); if(e) openShiftModal(e.start,e,{kinds:['業務']}); }));
+      list.querySelectorAll('[data-event-delete]').forEach(b=>b.addEventListener('click',()=>deleteShiftEntry(b.dataset.eventDelete)));
+      applyCollapse('eventToggle','eventBody','eventSummary',!state.collapsed.events,summary);
     }
     // Today's members from the shift sheet, with where each one is right now.
     function renderTodayShifts(){
@@ -1146,7 +1198,7 @@
     }
     // ---- Punch queue: accepted punches go to the sheet one at a time, in the background. ----
     let headSend=null; // Promise while state.pendingPunch is being sent and confirmed
-    const REJECTION_CODES=['invalid_allocation','allocation_mismatch','missing_clockin','unexpected_allocation','invalid_category','missing_required_params'];
+    const REJECTION_CODES=['invalid_allocation','allocation_mismatch','missing_clockin','unexpected_allocation','invalid_category','missing_required_params','invalid_correction'];
     function isRejection(err){ return !!(err && err.code && REJECTION_CODES.includes(err.code)); }
     function restorePunchQueue(){ const saved=safeGet('attendance_punch_queue',[]); return Array.isArray(saved)?saved.map(l=>sanitizeLog(l,0)).filter(Boolean):[]; }
     function persistPunchQueue(){ safeSet('attendance_punch_queue',state.punchQueue); }
@@ -1168,7 +1220,7 @@
         try{
           pending.sent=true; pending.error=''; pending.rejected=false; persistPendingPunch(); renderAll();
           const log=pending.log;
-          const result=await adminRequest(Object.assign({},log,{action:'add',requestId:log.id,receipt:pending.receipt,allocations:JSON.stringify(log.allocations)}));
+          const result=await adminRequest(Object.assign({},log,{action:'add',requestId:log.id,receipt:pending.receipt,allocations:JSON.stringify(log.allocations)},log.corrected?{correction:'1',reason:log.fixReason||''}:{}));
           if(!result || result.ok!==true) throw new Error('保存結果を確認できませんでした。');
           if(state.pendingPunch===pending) completePunch(log,result,quiet);
         }catch(err){
@@ -1389,7 +1441,8 @@
       const events=list.filter(e=>e.kind==='業務'), people=list.filter(e=>e.kind==='シフト'||e.kind==='出勤'), offs=list.filter(e=>e.kind==='休み'||e.kind==='有給'||e.kind==='振休');
       $('shiftDayList').innerHTML = (events.length?`<p class="shift-section">📌 その日の予定・連絡</p>${events.map(row).join('')}`:'')
         + `<p class="shift-section">👥 出勤する人（${people.length}人）</p>` + (people.length?people.map(row).join(''):'<div class="empty">まだ登録がありません。「＋ 追加」から登録できます。</div>')
-        + (offs.length?`<p class="shift-section">🏖 休み</p>${offs.map(row).join('')}`:'');
+        + (offs.length?`<p class="shift-section">🏖 休み</p>${offs.map(row).join('')}`:'')
+        + '<p class="member-help" style="margin:10px 0 0">📌 予定・連絡（バイブル到着など）は、打刻画面の「📌 予定・連絡」の「＋ 追加」から登録します。</p>';
       $('shiftDayList').querySelectorAll('[data-shift-delete]').forEach(b=>b.addEventListener('click',()=>deleteShiftEntry(b.dataset.shiftDelete)));
       $('shiftDayList').querySelectorAll('[data-shift-edit]').forEach(b=>b.addEventListener('click',()=>openShiftModal(day, findShiftEntry(b.dataset.shiftEdit))));
     }
@@ -1404,17 +1457,22 @@
       queueShiftOp({op:'delete',id:e.id,month:e.start.slice(0,7),by:state.selectedUser||(state.isAdminAuthenticated?'管理者':''),sent:false});
       showStatus('予定を削除しました。','success');
     }
-    function openShiftModal(day, editing){
+    function openShiftModal(day, editing, opts){
       state.shiftEditing=editing||null;
-      const e=editing||{kind:'シフト',name:state.selectedUser||'',start:day||todayYmd(),end:day||todayYmd(),from:'09:30',to:'15:00',label:'',memo:''};
-      $('shiftModalTitle').textContent=editing?'予定を変更':'予定を追加';
+      // 📌 予定・連絡 are added from the punch screen; the calendar adds people's entries.
+      const kinds=opts && opts.kinds || (editing && editing.kind==='業務' ? ['業務'] : SHIFT_KINDS.filter(k=>k!=='業務'));
+      const eventOnly=kinds.length===1 && kinds[0]==='業務';
+      state.shiftKinds=kinds;
+      const e=editing||{kind:kinds[0],name:eventOnly?'':(state.selectedUser||''),start:day||todayYmd(),end:day||todayYmd(),from:'09:30',to:'15:00',label:'',memo:''};
+      $('shiftModalTitle').textContent=eventOnly ? (editing?'予定・連絡を変更':'予定・連絡を追加') : (editing?'予定を変更':'予定を追加');
+      $('shiftKindRow').classList.toggle('hidden', kinds.length===1);
       const sel=$('shiftName'); sel.innerHTML='<option value="">-- 名前を選択 --</option>'+state.users.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join(''); sel.value=e.name;
       $('shiftStart').value=e.start; $('shiftEnd').value=e.end; $('shiftFrom').value=e.from||''; $('shiftTo').value=e.to||''; $('shiftLabel').value=e.label||''; $('shiftMemo').value=e.memo||'';
       setShiftKind(e.kind); $('shiftModalError').classList.add('hidden'); $('shiftModal').classList.add('show');
     }
     function setShiftKind(kind){
       state.shiftKind=kind;
-      $('shiftKindChoices').innerHTML=SHIFT_KINDS.map(k=>`<button type="button" class="choice${k===kind?' active':''}" data-kind="${k}">${SHIFT_KIND_LABELS[k]||k}</button>`).join('');
+      $('shiftKindChoices').innerHTML=(state.shiftKinds.length?state.shiftKinds:SHIFT_KINDS).map(k=>`<button type="button" class="choice${k===kind?' active':''}" data-kind="${k}">${SHIFT_KIND_LABELS[k]||k}</button>`).join('');
       $('shiftKindChoices').querySelectorAll('[data-kind]').forEach(b=>b.addEventListener('click',()=>setShiftKind(b.dataset.kind)));
       $('shiftNameRow').classList.toggle('hidden',kind==='業務');
       $('shiftLabelRow').classList.toggle('hidden',kind!=='業務');
@@ -1435,11 +1493,19 @@
       const entry={kind:kind,name:kind==='業務'?'':name,start:start,end:end,from:from,to:to,label:kind==='業務'?label:'',memo:memo};
       if(state.shiftEditing) queueShiftOp({op:'delete',id:state.shiftEditing.id,month:state.shiftEditing.start.slice(0,7),by:by,sent:false});
       queueShiftOp({op:'add',id:window.crypto.randomUUID(),entry:entry,by:by,sent:false});
-      closeShiftModal(); showStatus(state.shiftEditing?'予定を変更しました。':'予定を登録しました。','success');
+      const changed=!!state.shiftEditing; closeShiftModal(); showStatus(changed?'予定を変更しました。':'予定を登録しました。','success');
     }
     function resumePendingPunch(){
       if(state.isPunchSubmitting || !state.pendingPunch || headSend) return;
       const pending=state.pendingPunch, {log}=pending, rejected=!!pending.rejected;
+      if(rejected && log.corrected){
+        // A refused 修正依頼 goes back to its own form, where the time can be changed.
+        state.selectedUser=log.name; renderPunch();
+        const t=normalizeTimeString(log.time);
+        openFixModal({type:log.type,date:t.slice(0,10),time:t.slice(11,16),reason:log.fixReason,transport:log.transport||state.punchTransport,replaces:log.id});
+        $('fixError').textContent=pending.error||''; $('fixError').classList.toggle('hidden',!pending.error);
+        return;
+      }
       // A rejected punch reopens editable and is sent as a new punch at the original time.
       state.confirmPunch={userName:log.name,punchType:log.type,category:log.category,transport:log.transport,memo:log.memo,
         allocations:log.allocations,log:rejected?null:log,retry:!rejected,replaces:rejected?log.id:'',
@@ -1466,24 +1532,26 @@
       let result;
       try {result=await readGASViaJSONP(buildGasUrl({action:'adminResult',receipt:pending.receipt,t:Date.now()}),5000);} catch(e){}
       if(result && !result.pending && typeof result.ok==='boolean'){
-        if(!result.ok && ['invalid_allocation','allocation_mismatch','missing_clockin','unexpected_allocation','invalid_category','missing_required_params'].includes(result.error)) throw requestError(result);
+        if(!result.ok && REJECTION_CODES.includes(result.error)) throw requestError(result);
         if(result.ok && result.id && result.action==='add') return result;
       }
       // The receipt cache expires after a minute. Confirm older requests by their persistent ID.
       const data=await readGASDataOnce(buildGasUrl({action:'read',scope:'month',month:pending.log.month,fresh:'1',t:Date.now()}));
       if(!data || data.ok!==true || data.scope!=='month' || data.month!==pending.log.month || !Array.isArray(data.logs)) throw new Error('保存状況を取得できませんでした。通信を確認して、もう一度お試しください。');
       const saved=sanitizeLogs(data.logs).find(log=>log.id===pending.log.id);
-      return saved?{ok:true,action:'add',id:saved.id,memo:saved.memo,allocations:saved.allocations}:null;
+      return saved?{ok:true,action:'add',id:saved.id,memo:saved.memo,allocations:saved.allocations,corrected:saved.corrected}:null;
     }
     function completePunch(log,result,quiet){
       const saved=Object.assign({},log,{id:String(result.id||log.id)});
       if(typeof result.memo==='string') saved.memo=result.memo;
       if(Array.isArray(result.allocations)) saved.allocations=result.allocations;
+      if(typeof result.corrected==='string' && result.corrected) saved.corrected=result.corrected;
+      delete state.fixMonths[saved.month]; // the next 修正依頼 reads the month again
       state.mutationVersion++;
       if(state.monthLogs && state.loadedMonth===saved.month){ state.monthLogs=sanitizeLogs([saved].concat(state.monthLogs.filter(l=>l.id!==saved.id))); persistMonthCache(); }
       state.logs=sanitizeLogs([saved].concat(state.logs.filter(l=>l.id!==saved.id)));
       safeSet('attendance_recent_logs',state.logs);
-      if(saved.type==='出勤' || saved.type==='退勤'){state.punchMemo='';$('punchMemo').value='';}
+      if((saved.type==='出勤' || saved.type==='退勤') && !saved.corrected){state.punchMemo='';$('punchMemo').value='';}
       clearPendingPunch();state.lastSyncError='';state.confirmPunch=null;
       $('confirmModal').classList.remove('show');
       renderAll();if(!quiet) showStatus(`${saved.name}さん: [${saved.type}] を記録しました (${getHHMM(saved.time)})`,'success');
@@ -1521,7 +1589,7 @@
         const requestId = (window.crypto && typeof window.crypto.randomUUID === 'function')
           ? window.crypto.randomUUID()
           : Date.now().toString() + '-' + Math.random().toString(36).slice(2);
-        const newLog = draft.log || sanitizeLog({id:requestId, name:userName, type:punchType, time:jst.full, month:jst.monthOnly, transport:transport||'', memo:memo||'', category, allocations:draft.allocations||[]}, 0);
+        const newLog = draft.log || sanitizeLog({id:requestId, name:userName, type:punchType, time:jst.full, month:jst.monthOnly, transport:transport||'', memo:memo||'', category, allocations:draft.allocations||[], corrected:draft.correction?'修正依頼':'', fixReason:draft.correction?draft.correction.reason:''}, 0);
         if(!newLog) throw new Error('打刻内容を確認してください。');
         draft.log = newLog;
         if(!state.gasUrl) throw new Error('連携先が設定されていません。管理者に確認してください。');
@@ -1535,9 +1603,9 @@
           else rememberPendingPunch(newLog,window.crypto.randomUUID());
           state.confirmPunch=null;
           $('confirmModal').classList.remove('show');
-          if(punchType==='出勤' || punchType==='退勤'){state.punchMemo='';$('punchMemo').value='';}
+          if((punchType==='出勤' || punchType==='退勤') && !draft.correction){state.punchMemo='';$('punchMemo').value='';}
           renderAll();
-          showStatus(`${userName}さん: [${punchType}] を記録しました (${getHHMM(newLog.time)})`,'success');
+          showStatus(draft.correction ? `✏️ ${userName}さん: ${formatWithDayOfWeek(newLog.time)} の[${punchType}]を修正依頼として記録しました（赤字で残ります）` : `${userName}さん: [${punchType}] を記録しました (${getHHMM(newLog.time)})`,'success');
           return;
         }
         let result=null;
@@ -1645,6 +1713,138 @@
       }
     }
 
+    // ===== 修正依頼（押し忘れた打刻をあとから入れる） =====
+    // 入れた打刻はすぐ勤怠に反映され、アプリとスプレッドシートの両方で赤字（【修正】）として残る。
+    const FIX_TYPES=['出勤','退勤','休憩開始','休憩終了'];
+    const CORRECTION_MAX_DAYS=31;
+    function fixMs(t){ return new Date(normalizeTimeString(t).replace(' ','T')+'+09:00').getTime(); }
+    function fixClock(ms){ const d=new Date(ms+9*3600000); return `${d.getUTCMonth()+1}/${d.getUTCDate()} ${d.getUTCHours()}:${String(d.getUTCMinutes()).padStart(2,'0')}`; }
+    // Must match correctionFit_ in Code.gs: null when the punch fits the record, else the reason.
+    function correctionFit(logs, name, type, time){
+      const t=fixMs(time), category=CATEGORY_USERS.includes(name)?'業務配分':'';
+      if(!Number.isFinite(t)) return '修正する日時を確認してください。';
+      const mine=logs.filter(l=>l.name===name).map(l=>({id:String(l.id),type:l.type,t:fixMs(l.time)})).filter(l=>Number.isFinite(l.t));
+      if(mine.some(l=>l.type===type && l.t===t)) return `同じ時刻の${type}がすでに記録されています。`;
+      const walk=list=>{
+        const out={}; let active=false, working=false, start=0, shift=0;
+        list.slice().sort((a,b)=>a.t-b.t || (a.id==='__fix'?1:0)-(b.id==='__fix'?1:0)).forEach(l=>{
+          if(active && l.t-start>SHIFT_LIMIT_MS){active=false;working=false;}
+          let ok=false;
+          if(l.type==='出勤'){ if(!active){active=true;working=true;start=l.t;shift++;ok=true;} }
+          else if(l.type==='休憩開始'){ if(active&&working){working=false;ok=true;} }
+          else if(l.type==='休憩終了'){ if(active&&!working){working=true;ok=true;} }
+          else if(l.type==='退勤'){ ok=active; active=false; working=false; }
+          out[l.id]={ok,shift:ok?shift:0};
+        });
+        return out;
+      };
+      const before=walk(mine), after=walk(mine.concat([{id:'__fix',type,t}]));
+      if(!after.__fix.ok){
+        let active=false, working=false, start=0, expired=0;
+        mine.filter(l=>l.t<=t).sort((a,b)=>a.t-b.t).forEach(l=>{
+          if(active && l.t-start>SHIFT_LIMIT_MS){active=false;working=false;expired=start;}
+          if(l.type==='出勤' && !active){active=true;working=true;start=l.t;expired=0;}
+          else if(l.type==='休憩開始' && active && working) working=false;
+          else if(l.type==='休憩終了' && active && !working) working=true;
+          else if(l.type==='退勤'){active=false;working=false;expired=0;}
+        });
+        if(active && t-start>SHIFT_LIMIT_MS){active=false;expired=start;}
+        if(type==='出勤') return `その時刻はすでに勤務中です（${fixClock(start)} 出勤）。時刻を確認してください。`;
+        if(!active) return expired ? `${fixClock(expired)} の出勤から18時間を超えるため、${type}は入れられません。` : 'その時刻に出勤の記録がありません。先に出勤を修正依頼してください。';
+        if(type==='休憩開始') return 'その時刻はすでに休憩中です。';
+        if(type==='休憩終了') return 'その時刻は休憩中ではありません。';
+        return 'その時刻には入れられません。';
+      }
+      const broken=mine.filter(l=>before[l.id].ok && !after[l.id].ok).sort((a,b)=>a.t-b.t)[0];
+      if(broken) return `この時刻に入れると、${fixClock(broken.t)} の${broken.type}が無効になります。時刻を確認してください。`;
+      if(category==='業務配分' && type!=='退勤' && mine.some(l=>l.type==='退勤' && l.t>t && after[l.id].ok && after[l.id].shift===after.__fix.shift))
+        return 'この勤務は退勤済み（業務配分も入力済み）のため、あとから入れられません。管理者に修正を依頼してください。';
+      return null;
+    }
+    // The latest shift that ran past 18 hours without a clock-out, within the correction window ('' if none).
+    function unclosedShift(name){
+      const now=Date.now(); let active=false, start=0, startTime='', found='';
+      withPending(state.logs).filter(l=>l.name===name).map(l=>({type:l.type,t:fixMs(l.time),time:l.time})).filter(l=>Number.isFinite(l.t)).sort((a,b)=>a.t-b.t).forEach(l=>{
+        if(active && l.t-start>SHIFT_LIMIT_MS){ found=startTime; active=false; }
+        if(l.type==='出勤' && !active){ active=true; start=l.t; startTime=l.time; }
+        else if(l.type==='退勤') active=false;
+      });
+      if(active && now-start>SHIFT_LIMIT_MS) found=startTime;
+      return found && now-fixMs(found)<=CORRECTION_MAX_DAYS*86400000 ? normalizeTimeString(found) : '';
+    }
+    // The member's record for a month: recent punches (with those on their way) plus the month read.
+    function fixHistory(month){
+      const seen=new Set(), out=[], cached=state.fixMonths[month];
+      [withPending(state.logs), state.loadedMonth===month && Array.isArray(state.monthLogs) ? state.monthLogs : [], cached && cached.logs || []]
+        .forEach(list=>list.forEach(l=>{ if(!seen.has(l.id)){ seen.add(l.id); out.push(l); } }));
+      return out;
+    }
+    async function loadFixMonth(month){
+      if(!state.gasUrl || !/^\d{4}-\d{2}$/.test(month) || state.fixMonths[month]) return;
+      state.fixMonths[month]={status:'loading',logs:[]}; renderFix();
+      try{
+        const data=await readGASDataOnce(buildGasUrl({action:'read',scope:'month',month,t:Date.now()}));
+        if(!data || data.ok===false || !Array.isArray(data.logs)) throw new Error('read');
+        state.fixMonths[month]={status:'ready',logs:sanitizeLogs(data.logs)};
+      }catch(e){ state.fixMonths[month]={status:'failed',logs:[]}; }
+      renderFix();
+    }
+    function openFixModal(preset){
+      preset=preset||{};
+      if(!state.selectedUser){ showStatus('先に名前を選択してください。','error'); return; }
+      const name=state.selectedUser, shift=shiftStateOf(name), open=unclosedShift(name), today=todayYmd();
+      const type=preset.type || (shift.state!=='off' || open ? '退勤' : '出勤');
+      const date=preset.date || (shift.state!=='off' && shift.shiftStart ? ymd(shift.shiftStart) : open ? open.slice(0,10) : today);
+      state.fixDraft={name,type,date,time:preset.time||'',transport:preset.transport||state.punchTransport,replaces:preset.replaces||''};
+      $('fixName').textContent=`${name} さん`;
+      $('fixDate').min=ymd(new Date(Date.now()-CORRECTION_MAX_DAYS*86400000)); $('fixDate').max=today;
+      $('fixDate').value=date; $('fixTime').value=state.fixDraft.time; $('fixReason').value=preset.reason||'';
+      $('fixModal').classList.add('show');
+      renderFix(); loadFixMonth(date.slice(0,7));
+    }
+    function closeFixModal(){ $('fixModal').classList.remove('show'); }
+    function fixCheck(){
+      const d=state.fixDraft||{}, month=String(d.date||'').slice(0,7), cached=state.fixMonths[month];
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(d.date||'')) return {ok:false,preview:'日付を選んでください。'};
+      if(!/^\d{2}:\d{2}$/.test(d.time||'')) return {ok:false,preview:'時刻を入力してください。'};
+      const full=`${d.date} ${d.time}:00`, t=fixMs(full);
+      if(t>Date.now()+60000) return {ok:false,preview:'',error:'これからの時刻には修正依頼できません。'};
+      if(Date.now()-t>CORRECTION_MAX_DAYS*86400000) return {ok:false,preview:'',error:`${CORRECTION_MAX_DAYS}日より前の打刻は修正依頼できません。管理者に連絡してください。`};
+      if(cached && cached.status==='loading') return {ok:false,preview:'記録を確認しています…'};
+      const history=fixHistory(month), err=correctionFit(history,d.name,d.type,full);
+      if(err) return {ok:false,preview:'',error:err};
+      let preview=`<b>${esc(formatWithDayOfWeek(full))}</b> の<b>${esc(d.type)}</b>として入れます。`;
+      if(d.type!=='出勤'){
+        const w=shiftWalk_(history,d.name,full), min=shiftMinutes_(history,d.name,full);
+        if(min!==null && w.shiftStart) preview+=`<br>${esc(formatWithDayOfWeek(formatDateTime(new Date(w.shiftStart))))} の出勤から、この時刻までの実働 ${Math.floor(min/60)}時間${min%60}分`;
+      }
+      if(cached && cached.status==='failed') preview+='<br><small>記録を読み込めなかったため、最終確認は送信時に行います。</small>';
+      return {ok:true,preview,full};
+    }
+    function renderFix(){
+      const d=state.fixDraft; if(!d) return;
+      $('fixTypes').innerHTML=FIX_TYPES.map(t=>`<button type="button" class="choice${t===d.type?' active':''}" data-fix-type="${t}">${t}</button>`).join('');
+      $('fixTypes').querySelectorAll('[data-fix-type]').forEach(b=>b.addEventListener('click',()=>{ d.type=b.dataset.fixType; renderFix(); }));
+      $('fixTransportRow').classList.toggle('hidden', d.type!=='出勤');
+      $('fixBus').classList.toggle('active', String(d.transport).indexOf('バス')===0);
+      $('fixBike').classList.toggle('active', String(d.transport).indexOf('バス')!==0);
+      const c=fixCheck(); $('fixPreview').innerHTML=c.preview||'';
+      $('fixError').textContent=c.error||''; $('fixError').classList.toggle('hidden', !c.error);
+      $('fixNext').disabled=!c.ok;
+    }
+    function submitFix(){
+      const d=state.fixDraft, c=fixCheck(); if(!d || !c.ok) return;
+      closeFixModal();
+      triggerPunchConfirmation(d.type,{fixedTime:{full:c.full,monthOnly:d.date.slice(0,7),display:d.time},reason:$('fixReason').value.trim().slice(0,100),transport:d.transport,replaces:d.replaces});
+    }
+    // The punch card offers the correction and points at a clock-out that is missing.
+    function renderFixEntry(){
+      const open=$('fixOpen'), alert=$('fixAlert'); if(!open || !alert) return;
+      const name=state.selectedUser, missing=name ? unclosedShift(name) : '';
+      open.classList.toggle('hidden', !name);
+      alert.classList.toggle('hidden', !missing);
+      if(missing){ $('fixAlertText').textContent=`⚠️ ${formatWithDayOfWeek(missing)} の出勤に退勤の記録がありません。`; $('fixAlertBtn').dataset.date=missing.slice(0,10); }
+    }
     function readAllocationInputs(){
       return ALLOCATION_ITEMS.map(item=>{const h=Number($(item.id+'_hours').value||0),m=Number($(item.id+'_minutes').value||0);return {id:item.id,minutes:Number.isInteger(h)&&h>=0&&h<=168&&Number.isInteger(m)&&m>=0&&m<=59?h*60+m:NaN,memo:$(item.id+'_memo').value.trim()};});
     }
@@ -1652,8 +1852,8 @@
       const sum=readAllocationInputs().reduce((n,a)=>n+a.minutes,0), target=state.confirmPunch.targetMinutes;
       $('allocationTotal').textContent=`実働 ${Math.floor(target/60)}時間${target%60}分 ／ 配分 ${Math.floor(sum/60)}時間${sum%60}分 ／ 残り ${target-sum}分`;
     }
-    function renderAllocationInputs(minutes){
-      $('confirmDetails').innerHTML+='<div id="allocationTotal" role="status" class="allocation-total"></div><p>退勤ボタンを押した時刻までの実働時間を配分してください。休憩時間は含みません。</p>'+ALLOCATION_ITEMS.map(item=>`<div class="allocation-item"><h4>${esc(item.label)}</h4><p>${esc(item.description)}</p><div class="allocation-time"><label>時間<input data-allocation-input id="${item.id}_hours" aria-label="${esc(item.label)} 時間" type="number" min="0" max="168" step="1" inputmode="numeric" placeholder="0"></label><label>分<input data-allocation-input id="${item.id}_minutes" aria-label="${esc(item.label)} 分" type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="0"></label></div><label>業務内容（任意）<textarea data-allocation-input id="${item.id}_memo" aria-label="${esc(item.label)} 業務内容" maxlength="300" rows="2" placeholder="行った業務を入力"></textarea></label></div>`).join('');
+    function renderAllocationInputs(minutes, fix){
+      $('confirmDetails').innerHTML+='<div id="allocationTotal" role="status" class="allocation-total"></div><p>'+(fix?'入力した退勤時刻':'退勤ボタンを押した時刻')+'までの実働時間を配分してください。休憩時間は含みません。</p>'+ALLOCATION_ITEMS.map(item=>`<div class="allocation-item"><h4>${esc(item.label)}</h4><p>${esc(item.description)}</p><div class="allocation-time"><label>時間<input data-allocation-input id="${item.id}_hours" aria-label="${esc(item.label)} 時間" type="number" min="0" max="168" step="1" inputmode="numeric" placeholder="0"></label><label>分<input data-allocation-input id="${item.id}_minutes" aria-label="${esc(item.label)} 分" type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="0"></label></div><label>業務内容（任意）<textarea data-allocation-input id="${item.id}_memo" aria-label="${esc(item.label)} 業務内容" maxlength="300" rows="2" placeholder="行った業務を入力"></textarea></label></div>`).join('');
     }
 function validateAllocations_(allocations) {
   if(!Array.isArray(allocations) || allocations.length!==ALLOCATION_ITEMS.length) return {ok:false,error:"invalid_allocation",message:"10項目の業務時間を確認してください。"};

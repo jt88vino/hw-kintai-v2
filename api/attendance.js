@@ -23,7 +23,7 @@ module.exports = async function handler(req, res) {
       if (!body || Buffer.byteLength(JSON.stringify(body)) > 24000 || !WRITE_ACTIONS.has(body.action)) return res.status(400).json({ok:false,error:'invalid_action'});
       if (!body.requestId || typeof body.requestId !== 'string' || body.requestId.length > 100) return res.status(400).json({ok:false,error:'request_id_required'});
       params = {action:'add',receipt:randomUUID()};
-      for (const key of ['requestId','id','name','type','time','month','transport','memo','category','allocations']) {
+      for (const key of ['requestId','id','name','type','time','month','transport','memo','category','allocations','correction','reason']) {
         if (body[key] !== undefined) {
           if (typeof body[key] !== 'string') return res.status(400).json({ok:false,error:'invalid_field'});
           params[key] = body[key];
@@ -39,7 +39,7 @@ module.exports = async function handler(req, res) {
     if (!data || typeof data.ok !== 'boolean') throw new Error('invalid_response');
     // Allow only the public attendance response; never relay a server stack trace.
     const output = {};
-    for (const key of ['ok','action','id','duplicate','memo','allocations','logs','users','transportationCosts','scope','month','months','schemaVersion','revision','serverTime','error','message','actualMinutes']) if (data[key] !== undefined) output[key] = data[key];
+    for (const key of ['ok','action','id','duplicate','memo','allocations','corrected','logs','users','transportationCosts','scope','month','months','schemaVersion','revision','serverTime','error','message','actualMinutes']) if (data[key] !== undefined) output[key] = data[key];
     return res.status(200).json(output);
   } catch (error) {
     const timeout = ['TimeoutError','AbortError'].includes(error.name);

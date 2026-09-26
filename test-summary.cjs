@@ -41,12 +41,12 @@ assert.equal(st['田中'].totalMinutes,165);assert.equal(st['田中'].categoryMi
 // Writing creates both sheets, sorts members by hours, appends a 合計 row, and formats via the data sheet.
 assert.equal(gas.writeMonthlySummary_(ss,'2026-09'),3);
 const dataSheet=ss.getSheetByName('月次集計_データ'),view=ss.getSheetByName('月次集計ダッシュボード');assert(dataSheet&&view);assert.equal(view,placeholder); // the hand-made placeholder is configured in place
-assert.equal(JSON.stringify(dataSheet.rows[0]),JSON.stringify(['月','名前','出勤日数','勤務時間','時間(小数)','目標80H比','交通費支給日','往復交通費','交通費合計','アカデミー','ホームワイン','その他（WT業務）','更新日時']));
+assert.equal(JSON.stringify(dataSheet.rows[0]),JSON.stringify(['月','名前','出勤日数','勤務時間','時間(小数)','目標80H比','交通費支給日','往復交通費','交通費合計','アカデミー','ホームワイン','その他（WT業務）','更新日時','修正件数']));
 const kita=dataSheet.rows[1],tanaka=dataSheet.rows[2],total=dataSheet.rows[3];
 assert.equal(JSON.stringify(kita.slice(0,12)),JSON.stringify(['2026-09','喜多',2,540/1440,9,540/4800,1,636,636,0,0,0]));
 assert.equal(JSON.stringify(tanaka.slice(0,12)),JSON.stringify(['2026-09','田中',1,165/1440,2.75,165/4800,0,0,0,105/1440,60/1440,0]));
 assert.equal(JSON.stringify(total.slice(0,12)),JSON.stringify(['2026-09','合計',3,705/1440,11.75,'',1,'',636,105/1440,60/1440,0]));
-assert.match(String(kita[12]),/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);assert.equal(dataSheet.rows.length,4);
+assert.match(String(kita[12]),/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);assert.equal(kita[13],0);assert.equal(total[13],0); // 修正件数 is the last columnassert.equal(dataSheet.rows.length,4);
 assert.equal(view.getRange('B1').getValue(),'2026-09');assert.match(view.getRange('A8').getFormula(),/FILTER\(\{'月次集計_データ'!B2:B/);assert.match(view.getRange('E5').getFormula(),/TEXTJOIN/);assert.equal(view.getFrozenRows(),7);
 // An empty month gets zero rows for everyone, sorted below the newer month; rewriting a month never duplicates it.
 assert.equal(gas.writeMonthlySummary_(ss,'2026-08'),3);
