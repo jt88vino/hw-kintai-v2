@@ -36,7 +36,7 @@ const rule=()=>{const b={whenFormulaSatisfied(f){b.f=f;return b},setFontColor(c)
   build(){const f=b.f,ranges=b.ranges,color=b.color;return {f,ranges,color,getBooleanCondition:()=>({getCriteriaValues:()=>[f]})};}};return b;};
 const gas={CacheService:{getScriptCache:()=>({get:k=>cache.get(k)||null,put:(k,v)=>cache.set(k,v),remove:k=>cache.delete(k)})},PropertiesService:{getScriptProperties:()=>({getProperty:k=>props.get(k)||null,setProperty:(k,v)=>props.set(k,v),deleteProperty:k=>props.delete(k)})},
   Utilities:{getUuid:()=>crypto.randomUUID(),formatDate:(d,tz,f)=>jst(d.getTime()).slice(0,f==='yyyy-MM'?7:f==='yyyy-MM-dd'?10:16)},
-  LockService:{getScriptLock:()=>({waitLock(){},releaseLock(){}})},SpreadsheetApp:{flush(){},openById:()=>ss,newConditionalFormatRule:rule},
+  LockService:{getScriptLock:()=>({waitLock(){},tryLock(){return true},releaseLock(){}})},SpreadsheetApp:{flush(){},openById:()=>ss,newConditionalFormatRule:rule},
   ContentService:{createTextOutput:s=>({setMimeType(){return {getContent:()=>s}}}),MimeType:{JSON:'json',JAVASCRIPT:'js'}},Date,JSON,Math,console};
 vm.createContext(gas);vm.runInContext(fs.readFileSync('Code.gs','utf8'),gas);
 const post=p=>JSON.parse(gas.handleRequest_({parameter:Object.assign({action:'add',receipt:crypto.randomUUID(),month:p.time.slice(0,7),correction:'1'},p)},true).getContent());

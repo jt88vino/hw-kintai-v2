@@ -94,10 +94,15 @@ function handleRequest_(e, isPost) {
       }
     } catch (err) { result = {ok:false, error:"admin_action_failed", message:"管理者操作に失敗しました。再同期して状態を確認してください。"}; }
     CacheService.getScriptCache().put("result:" + params.receipt, JSON.stringify(result), 60);
+    // 画面はもう receipt で結果を受け取れるので、ここからは応答を待たせずに後片付けをする。
+    // 直近の読み取り用キャッシュを先に作り直し、ほかの端末が開いたときにすぐ返せるようにする
+    if (result && result.ok && ["add", "delete", "deleteRecent", "addUser", "deleteUser", "noticeAdd", "noticeDelete"].indexOf(action) !== -1) warmRecentCache_();
     // The receipt is stored, so the app already has its answer; the payroll sheet catches up afterwards.
     if (result && result.ok && (action === "add" || action === "delete" || action === "deleteRecent")) { try { refreshMonthlySummary_(summaryMonthsFor_(action, params)); } catch (err) {} }
     return createResponse_(e, result);
   }
+  // 打刻の書き込みは POST（上の分岐）だけで受け付ける。URL を知っていれば GET で打刻できてしまうのを防ぐ
+  if (action === "add") return createResponse_(e, {ok:false, error:"post_required"});
   try {
     if(action==='read' && params.scope==='recent' && params.fresh!=='1') {
       const cached=CacheService.getScriptCache().get('attendance:recent');
@@ -346,15 +351,22 @@ function findExistingLogId_(sheet, logId, name, type, time, category) {
 // Chunk properties to stay below the per-value limit. Reads and writes share a lock.
 const READ_INDEX_PREFIX = 'ATTENDANCE_READ_INDEX_';
 function invalidateAttendanceIndex_() {
-  PropertiesService.getScriptProperties().deleteProperty(READ_INDEX_PREFIX + 'meta');
+  const props = PropertiesService.getScriptProperties();
+  const old = readIndexMeta_(props);
+  props.deleteProperty(READ_INDEX_PREFIX + 'meta');
+  deleteIndexParts_(props, old);
   CacheService.getScriptCache().remove('attendance:recent');
 }
 function attendanceSheetChanged(e) {
-  const lock=LockService.getScriptLock(); lock.waitLock(30000);
+  // 索引を捨てるのは、鍵を持って読んでいる途中の人が古い索引を保存し直さないよう、鍵を取ってから行う。
+  // 以前は30秒待っていたが、読み取りは鍵を待たなくなったので10秒で足りる。取れなくても捨てる
+  const lock=LockService.getScriptLock(), locked=lock.tryLock(10000);
   try {
     CacheService.getScriptCache().remove('attendance:roster');
     if (!e || !e.range || e.range.getSheet().getName() === MASTER_SHEET_NAME) invalidateAttendanceIndex_();
-  } finally {lock.releaseLock();}
+  } finally { if (locked) lock.releaseLock(); }
+  // トリガーは裏で動くので、ここで作り直しておけば、次に開いた人が全件の読み直しを待たずに済む
+  warmRecentCache_();
 }
 function setupAttendanceReadIndex() {
   const triggers = ScriptApp.getProjectTriggers();
@@ -365,23 +377,40 @@ function setupAttendanceReadIndex() {
   const ss=SpreadsheetApp.openById(SPREADSHEET_ID);
   readData_(ss,ss.getSheetByName(MASTER_SHEET_NAME),{scope:'recent'});
 }
+// 索引は2000文字ずつに分けて保存する。読み取りは鍵を待たないので、保存の途中を読んでも新旧が混ざらないよう、
+// 新しい版（gen）の部分を全部書いてから meta を切り替え、そのあとで古い版の部分を消す。
+// 読み取りは meta が指す版の部分だけを読む。古い版を読んでいる途中で消されたら JSON として読めず、作り直しになる（正しい）
+function indexPartKey_(meta, i) {
+  return READ_INDEX_PREFIX + (meta && meta.gen ? meta.gen + '_' : '') + i;
+}
+function readIndexMeta_(props) {
+  try { return JSON.parse(props.getProperty(READ_INDEX_PREFIX + 'meta') || 'null'); } catch (e) { return null; }
+}
+function deleteIndexParts_(props, meta) {
+  for (let i = 0; meta && i < meta.parts; i++) props.deleteProperty(indexPartKey_(meta, i));
+}
 function loadReadIndex_() {
   const props=PropertiesService.getScriptProperties();
   try {
-    const meta=JSON.parse(props.getProperty(READ_INDEX_PREFIX+'meta')||'null');
+    const meta=readIndexMeta_(props);
     if(!meta) return null;
     let value='';
-    for(let i=0;i<meta.parts;i++) value+=props.getProperty(READ_INDEX_PREFIX+i)||'';
+    for(let i=0;i<meta.parts;i++) {
+      const part=props.getProperty(indexPartKey_(meta,i));
+      if(part===null || part===undefined) return null; // 別の保存で消された古い版。作り直す
+      value+=part;
+    }
     return JSON.parse(value);
   } catch(e) { return null; }
 }
 function saveReadIndex_(index) {
   const props=PropertiesService.getScriptProperties(), value=JSON.stringify(index);
   const parts=Math.ceil(value.length/2000); // Japanese text can take three UTF-8 bytes.
-  const old=JSON.parse(props.getProperty(READ_INDEX_PREFIX+'meta')||'null');
-  for(let i=0;i<parts;i++) props.setProperty(READ_INDEX_PREFIX+i,value.slice(i*2000,(i+1)*2000));
-  for(let i=parts;old && i<old.parts;i++) props.deleteProperty(READ_INDEX_PREFIX+i);
-  props.setProperty(READ_INDEX_PREFIX+'meta',JSON.stringify({parts:parts}));
+  const old=readIndexMeta_(props);
+  const meta={parts:parts, gen:Utilities.getUuid().slice(0,8)};
+  for(let i=0;i<parts;i++) props.setProperty(indexPartKey_(meta,i),value.slice(i*2000,(i+1)*2000));
+  props.setProperty(READ_INDEX_PREFIX+'meta',JSON.stringify(meta));
+  deleteIndexParts_(props, old);
 }
 function indexTime_(value) {
   const text=String(value||'').replace(/\//g,'-');
@@ -426,7 +455,8 @@ function updateReadIndex_(index, rows, startRow) {
   index.lastRow=startRow+rows.length-1;
   index.revision=Utilities.getUuid();
 }
-function getReadIndex_(sheet) {
+function getReadIndex_(sheet, canSave) {
+  if(canSave===undefined) canSave=true;
   const lastRow=sheet?sheet.getLastRow():0;
   let index=loadReadIndex_();
   // A rebuild also reconciles changes made by external APIs (which do not fire edit triggers).
@@ -434,12 +464,12 @@ function getReadIndex_(sheet) {
   if(index && index.lastRow<lastRow) {
     const rows=sheet.getRange(index.lastRow+1,1,lastRow-index.lastRow,MASTER_HEADERS.length).getDisplayValues();
     if(rows.some(r=>r[3] && indexTime_(r[3])<index.maxTime)) index=null;
-    else {updateReadIndex_(index,rows,index.lastRow+1);saveReadIndex_(index);}
+    else {updateReadIndex_(index,rows,index.lastRow+1);if(canSave) saveReadIndex_(index);}
   }
   if(!index) {
     index={version:1,lastRow:lastRow,builtAt:Date.now(),months:{},latest:{},sessions:{},recent:[],maxTime:'',revision:Utilities.getUuid()};
     if(lastRow>1) updateReadIndex_(index,sheet.getRange(2,1,lastRow-1,MASTER_HEADERS.length).getDisplayValues(),2);
-    saveReadIndex_(index);
+    if(canSave) saveReadIndex_(index);
   }
   return index;
 }
@@ -463,13 +493,16 @@ function readData_(ss, sheet, params) {
   const scope=params.scope||'legacy', month=String(params.month||'');
   if(!['recent','month','legacy'].includes(scope)) return {ok:false,error:'invalid_scope'};
   if(scope==='month' && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return {ok:false,error:'invalid_month'};
-  const lock=LockService.getScriptLock(); lock.waitLock(10000);
+  // 以前は読むたびにスクリプト全体の鍵を最大10秒待っていたため、読む人同士や打刻と順番待ちになっていた。
+  // 鍵は索引を保存するときだけ必要なので、待たずに試し、取れなかったら保存を省いて読む（読み取り結果は同じ）
+  const lock=LockService.getScriptLock();
+  const locked=lock.tryLock(Number(params.lockWaitMs)||0);
   try {
     if(scope==='recent' && params.fresh!=='1') {
       const cached=CacheService.getScriptCache().get('attendance:recent');
       if(cached) return JSON.parse(cached);
     }
-    const index=getReadIndex_(sheet);
+    const index=getReadIndex_(sheet,locked);
     let spans=[];
     if(scope==='month') {
       spans=(index.months[month]?index.months[month].spans:[]).map(s=>s.slice());
@@ -495,11 +528,21 @@ function readData_(ss, sheet, params) {
       serverTime:Utilities.formatDate(new Date(),'Asia/Tokyo','yyyy-MM-dd HH:mm:ss')};
     if(scope==='recent') {
       const value=JSON.stringify(result);
-      // Every write clears this cache, so it can live long enough for the morning's first open to hit it.
-      if(value.length<90000) CacheService.getScriptCache().put('attendance:recent',value,120);
+      // 書き込みのたびに作り直すので長めに持つ。お知らせの掲載期限の切り替わりは30分以内に反映される。
+      // キャッシュに入れるのは鍵を持っているときだけ。鍵なしで読んだ結果は、途中で打刻が入っていると古い可能性があり、
+      // 打刻直後に作り直したキャッシュを上書きして30分残ってしまうため
+      if(locked && value.length<90000) CacheService.getScriptCache().put('attendance:recent',value,RECENT_CACHE_SECONDS);
     }
     return result;
-  } finally {lock.releaseLock();}
+  } finally {if(locked) lock.releaseLock();}
+}
+const RECENT_CACHE_SECONDS=1800;
+// 直近の読み取り結果を作り直してキャッシュに入れる。失敗しても書き込みには影響させない
+function warmRecentCache_() {
+  try {
+    const ss=SpreadsheetApp.openById(SPREADSHEET_ID);
+    readData_(ss, ss.getSheetByName(MASTER_SHEET_NAME), {scope:'recent', fresh:'1', lockWaitMs:5000});
+  } catch (err) {}
 }
 
 /**

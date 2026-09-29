@@ -30,7 +30,7 @@ const cache=new Map(),props=new Map();
 const pad=n=>String(n).padStart(2,'0');
 const gas={CacheService:{getScriptCache:()=>({get:k=>cache.get(k)||null,put:(k,v)=>cache.set(k,v),remove:k=>cache.delete(k)})},PropertiesService:{getScriptProperties:()=>({getProperty:k=>props.get(k)||null,setProperty:(k,v)=>props.set(k,v),deleteProperty:k=>props.delete(k)})},
   Utilities:{getUuid:()=>crypto.randomUUID(),formatDate:(d,tz,f)=>f==='yyyy-MM'?`${d.getFullYear()}-${pad(d.getMonth()+1)}`:f==='yyyy-MM-dd'?`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`:`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`},
-  LockService:{getScriptLock:()=>({waitLock(){},releaseLock(){}})},SpreadsheetApp:chain({flush(){},openById:()=>ss}),
+  LockService:{getScriptLock:()=>({waitLock(){},tryLock(){return true},releaseLock(){}})},SpreadsheetApp:chain({flush(){},openById:()=>ss}),
   ContentService:{createTextOutput:s=>({setMimeType(){return {getContent:()=>s}}}),MimeType:{JSON:'json',JAVASCRIPT:'js'}},Date,JSON,Math,console};
 vm.createContext(gas);vm.runInContext(fs.readFileSync('Code.gs','utf8'),gas);
 // The stats mirror the app: 喜多 9h over two days (one paid transport day), 田中 165min from allocations.
