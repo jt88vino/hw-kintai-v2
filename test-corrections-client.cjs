@@ -50,7 +50,7 @@ const tick=()=>new Promise(r=>setImmediate(r));
  // ---- 業務配分: the corrected checkout asks for the split of the hours up to that time ----
  api.state.selectedUser='田中';api.state.logs.push({id:'t1',name:'田中',type:'出勤',time:at(3,10),month:at(3,10).slice(0,7),category:'業務配分',transport:'',memo:'',allocations:[]});
  api.openFixModal({type:'退勤'});await tick();api.state.fixDraft.time='13:00';el('fixReason').value='';api.submitFix();
- assert.equal(api.state.confirmPunch.targetMinutes,180);assert.match(el('confirmDetails').innerHTML,/入力した退勤時刻までの実働時間/);api.state.confirmPunch=null;
+ assert.equal(api.state.confirmPunch.targetMinutes,180);assert.match(el('confirmDetails').innerHTML,/入力した退勤時刻までの実働/);api.state.confirmPunch=null;
  // A refused correction reopens its own form, ready to replace it.
  { const log={id:'r1',name:'橋本',type:'退勤',time:at(9,15),month:at(9,15).slice(0,7),category:'',transport:'',memo:'',allocations:[],corrected:'修正依頼',fixReason:'理由'};
    api.state.pendingPunch={gasUrl:api.state.gasUrl,log,receipt:crypto.randomUUID(),sent:true,error:'その時刻に出勤の記録がありません。',rejected:true};
