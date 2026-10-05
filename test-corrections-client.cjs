@@ -31,7 +31,7 @@ const tick=()=>new Promise(r=>setImmediate(r));
  // ---- A forgotten clock-out is spotted, entered with its real time, and marked ----
  api.state.selectedUser='橋本';api.state.logs=[{id:'h1',name:'橋本',type:'出勤',time:at(2,8,30),month:at(2,8,30).slice(0,7),category:'',transport:'',memo:'',allocations:[]}];
  assert.equal(api.unclosedShift('橋本'),at(2,8,30));
- api.renderPunch();assert(!el('fixAlert').classes.has('hidden'));assert.match(el('fixAlertText').textContent,/出勤に退勤の記録がありません/);assert.equal(el('fixAlertBtn').dataset.date,at(2,8,30).slice(0,10));assert(!el('fixOpen').classes.has('hidden'));
+ api.renderPunch();assert(!el('fixAlert').classes.has('hidden'));assert.match(el('fixAlertText').textContent,/出勤の退勤がありません/);assert.equal(el('fixAlertBtn').dataset.date,at(2,8,30).slice(0,10));assert(!el('fixOpen').classes.has('hidden'));
  api.openFixModal();assert(el('fixModal').classes.has('show'));assert.equal(api.state.fixDraft.type,'退勤');assert.equal(api.state.fixDraft.date,at(2,8,30).slice(0,10));
  assert.match(api.fixCheck().preview,/時刻を入力/);await tick();
  api.state.fixDraft.time='15:30';let c=api.fixCheck();assert.equal(c.ok,true);assert.match(c.preview,/実働 7時間0分/);

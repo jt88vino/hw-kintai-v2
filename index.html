@@ -57,6 +57,7 @@
     .shift-chip.mine{outline:2px solid #4f46e5;outline-offset:-2px}.shift-chip.pending{opacity:.55;border:1px dashed #64748b}
     .shift-kinds{grid-template-columns:repeat(3,1fr)}.shift-form label{display:block;font-size:11px;font-weight:900;color:#64748b;margin-bottom:4px}
     .shift-form input,.shift-form select{box-sizing:border-box;width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px}
+    .now-compact{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px}.now-compact .now-weather-date{font-size:11px;padding:0;background:none;border:0}.now-compact .large-clock{font-size:28px;margin:0;text-align:left}.now-compact .now-weather{display:flex;align-items:center;gap:8px;min-width:0}.now-compact .weather-icon-large{font-size:28px}.now-compact .weather-condition-large{font-size:14px;line-height:1.25}.now-compact .weather-temp-large{font-size:11px;line-height:1.3;border:0;padding:0;text-align:left;white-space:nowrap}.punch-card .punch-grid{margin-top:14px}.punch-card .punch-btn{min-height:92px}.punch-card .punch-btn.small{min-height:60px}.link-btn{background:none;border:0;padding:4px 0;color:var(--indigo);font-size:12px;font-weight:900;cursor:pointer;flex:none}
     .repeat-box{border:1px solid var(--line);border-radius:12px;padding:10px 11px;background:#f8fafc}.shift-form .repeat-toggle{display:flex;align-items:center;gap:9px;font-size:13px;color:#334155;margin:0;cursor:pointer}.shift-form .repeat-toggle input{width:20px;height:20px;margin:0;padding:0;flex:none;accent-color:var(--indigo)}.weekday-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.weekday-grid .choice{padding:9px 0;font-size:13px}.weekday-grid .choice.sat:not(.active){color:#2563eb}.weekday-grid .choice.sun:not(.active){color:#dc2626}.repeat-preview{font-size:12px;color:#334155;font-weight:800;margin-top:10px;line-height:1.5}.repeat-preview .note{display:block;font-size:10px;color:#64748b;font-weight:800;margin-top:2px}.repeat-dates{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}.repeat-date{border:1px solid #c7d2fe;background:#eef2ff;color:#3730a3;border-radius:999px;padding:6px 9px;font-size:12px;font-weight:900;line-height:1}.repeat-date.off{background:#fff;color:#94a3b8;border-style:dashed}.repeat-date.off b{text-decoration:line-through}.repeat-date small{font-size:9px;margin-left:3px}.repeat-date:disabled{opacity:.75;cursor:default}
     .tag.off{background:#e5e7eb;color:#4b5563}
     .kpi-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.kpi{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:10px 11px;min-width:0}.kpi small{display:block;font-size:10px;color:#64748b;font-weight:900}.kpi b{display:block;font-size:18px;font-weight:950;color:#1e293b;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.3;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.kpi b span{font-size:11px;color:#64748b;font-weight:900;margin:0 1px}.kpi.accent b{color:var(--indigo)}.kpi.over b{color:var(--rose)}.summary-sub{font-size:11px;font-weight:900;color:#475569;margin:14px 0 7px}.summary-note{font-size:11px;font-weight:900;margin-top:10px;line-height:1.5}.rank-list{display:flex;flex-direction:column;gap:7px}.rank-row{display:grid;grid-template-columns:minmax(48px,auto) minmax(0,1fr) auto;gap:8px;align-items:center}.rank-name{font-size:12px;font-weight:950;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:78px}.rank-name.over{color:var(--rose)}.rank-bar{height:9px;background:#e2e8f0;border-radius:99px;overflow:hidden}.rank-bar span{display:block;height:100%;background:var(--indigo);border-radius:99px}.rank-bar span.warn{background:#f59e0b}.rank-bar span.danger{background:#e11d48}.rank-val{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:950;color:#334155;white-space:nowrap;text-align:right;line-height:1.2}.rank-val.over{color:var(--rose)}.rank-val small{display:block;font-family:inherit;font-size:9px;color:#94a3b8;font-weight:900;margin-top:2px}.seg-bar{display:flex;height:12px;border-radius:99px;overflow:hidden;background:#e2e8f0;margin:0 0 8px}.seg-bar span{display:block;height:100%}.seg-legend{display:flex;flex-wrap:wrap;gap:5px 12px;font-size:10px;font-weight:900;color:#475569;line-height:1.5}.seg-legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px;vertical-align:-1px}
@@ -95,49 +96,23 @@
       <div id="runtimeError" class="status error"></div>
       <div id="updateNotice" class="status info">新しいバージョンがあります。右上の「⟳ 更新」を押すと切り替わります。</div>
       <section id="punchTab" class="tab stack fade">
-        <div class="card now-weather-card">
-          <div class="now-weather-head only-date">
-            <div id="currentDateLarge" class="now-weather-date">読み込み中...</div>
-          </div>
-          <div id="currentTimeLarge" class="large-clock">--:--:--</div>
-          <div class="weather-panel">
-            <div class="weather-left">
-              <div id="weatherIconLarge" class="weather-icon-large">☁️</div>
-              <div>
-                <div id="weatherConditionLarge" class="weather-condition-large">天気取得中...</div>
-                <div class="weather-location">八王子市の天気</div>
-              </div>
-            </div>
-            <div id="weatherTempLarge" class="weather-temp-large">--°C <span>/</span> --°C</div>
-          </div>
+        <div class="card now-weather-card now-compact">
+          <div><div id="currentDateLarge" class="now-weather-date">読み込み中...</div><div id="currentTimeLarge" class="large-clock">--:--:--</div></div>
+          <div class="now-weather"><div id="weatherIconLarge" class="weather-icon-large">☁️</div><div><div id="weatherConditionLarge" class="weather-condition-large">天気取得中</div><div id="weatherTempLarge" class="weather-temp-large"></div></div></div>
         </div>
-        <div id="noticeCard" class="card notice-card hidden"><h3 class="card-title">📢 お知らせ</h3><div id="noticeList"></div></div>
-        <div id="eventCard" class="card notice-card"><div class="row" style="align-items:flex-start;gap:8px"><button id="eventToggle" class="card-toggle" style="flex:1;min-width:0" type="button" aria-expanded="false" aria-controls="eventBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📌 予定・連絡（今日から1週間）</h3><div id="eventSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><button id="eventAdd" class="mini-btn" type="button" style="flex:none">＋ 追加</button></div><div id="eventBody" class="hidden" style="margin-top:8px"><div id="eventList"></div><p class="member-help" style="margin:8px 0 0">「＋ 追加」から登録できます。✏️ で変更、🗑 で削除（誰でも操作できます）。</p></div></div>
-        <div id="todayShiftCard" class="card hidden"><button id="todayShiftToggle" class="card-toggle" type="button" aria-expanded="false" aria-controls="todayShiftBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📅 今日の出勤予定</h3><div id="todayShiftSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><div id="todayShiftBody" class="hidden" style="margin-top:8px"><div id="todayShiftList" class="log-list" style="max-height:none"></div></div></div>
         <div id="statusMessage" class="status"></div>
         <div id="pendingPunchCard" class="card hidden" role="status" aria-live="polite"><p id="pendingPunchText" style="margin:0 0 10px"></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="resumePunch" class="mini-btn" type="button">保存確認・再送</button><button id="discardPunch" class="mini-btn" type="button">取り消す</button></div></div>
-        <div class="card">
-          <label for="selectedUser">あなたの名前を選択してください</label>
+        <div class="card punch-card">
+          <label for="selectedUser">名前</label>
           <select id="selectedUser"><option value="">-- 名前を選択 --</option></select>
-        </div>
-        <div id="transportCard" class="card hidden">
-          <h3 class="card-title">📅 本日の交通機関・連絡メモ</h3>
-          <div class="stack">
-            <div>
-              <p class="sub-title">交通機関（バス・電車のみ往復交通費をカウント）</p>
-              <div class="choice-grid">
-                <button id="transportBus" class="choice active" type="button">🚌 バス・電車</button>
-                <button id="transportBike" class="choice" type="button">🚲 自転車・他</button>
-              </div>
+          <div id="transportCard" class="hidden" style="margin-top:12px">
+            <div class="choice-grid">
+              <button id="transportBus" class="choice active" type="button">🚌 バス・電車</button>
+              <button id="transportBike" class="choice" type="button">🚲 自転車・他</button>
             </div>
-            <div>
-              <p class="sub-title">備考欄・メモ</p>
-              <textarea id="punchMemo" class="textarea" placeholder="備考・連絡事項を入力してください（任意）"></textarea>
-            </div>
+            <div class="row" style="margin-top:6px"><span class="member-help" style="margin:0">交通費はバス・電車のみ</span><button id="memoToggle" class="link-btn" type="button">＋ メモ</button></div>
+            <div id="memoBox" class="hidden" style="margin-top:6px"><textarea id="punchMemo" class="textarea" placeholder="連絡事項（任意）"></textarea></div>
           </div>
-        </div>
-        <div class="card">
-          <h3 class="card-title">勤怠打刻ボタン</h3>
           <div id="workCategoryBox" class="hidden" style="margin-bottom:14px">
             <label for="workCategory">業務区分</label>
             <select id="workCategory"><option value="">-- 業務を選択 --</option><option>アカデミー</option><option>ホームワイン</option><option>その他（WT業務）</option></select>
@@ -152,8 +127,11 @@
           <p id="punchState" class="member-help" style="margin:10px 0 0" role="status" aria-live="polite"></p>
           <p id="punchShiftLine" class="member-help hidden" style="margin:6px 0 0"></p>
           <div id="fixAlert" class="fix-alert hidden" role="status"><span id="fixAlertText"></span><button id="fixAlertBtn" class="mini-btn" type="button">退勤を入力する</button></div>
-          <button id="fixOpen" class="fix-link hidden" type="button">✏️ 押し忘れた打刻の修正依頼</button>
+          <button id="fixOpen" class="fix-link hidden" type="button">✏️ 押し忘れの修正</button>
         </div>
+        <div id="noticeCard" class="card notice-card hidden"><h3 class="card-title">📢 お知らせ</h3><div id="noticeList"></div></div>
+        <div id="eventCard" class="card notice-card"><div class="row" style="align-items:flex-start;gap:8px"><button id="eventToggle" class="card-toggle" style="flex:1;min-width:0" type="button" aria-expanded="false" aria-controls="eventBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📌 予定・連絡（1週間）</h3><div id="eventSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><button id="eventAdd" class="mini-btn" type="button" style="flex:none">＋ 追加</button></div><div id="eventBody" class="hidden" style="margin-top:8px"><div id="eventList"></div><p class="member-help" style="margin:8px 0 0">✏️ で変更、🗑 で削除できます。</p></div></div>
+        <div id="todayShiftCard" class="card hidden"><button id="todayShiftToggle" class="card-toggle" type="button" aria-expanded="false" aria-controls="todayShiftBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📅 今日の出勤予定</h3><div id="todayShiftSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><div id="todayShiftBody" class="hidden" style="margin-top:8px"><div id="todayShiftList" class="log-list" style="max-height:none"></div></div></div>
         <div id="recentCard" class="card relative">
           <div class="sync-cover"><div class="spinner"></div></div>
           <div class="row" style="margin-bottom:12px"><h3 class="card-title" style="margin:0">⏱ 直近の打刻ログ</h3><button id="refreshBtn" class="mini-btn">更新 ⟳</button></div>
@@ -295,6 +273,7 @@
       transportationCosts: safeObject(safeGet('attendance_transportation', {})),
       punchTransport: 'バス・電車（交通費あり）',
       punchMemo: '',
+      memoOpen: false,
       workCategory: '',
       activeTab: 'punch',
       selectedMonth: getCurrentMonth(),
@@ -472,7 +451,8 @@
     }
 
     function bindEvents(){
-      $('selectedUser').addEventListener('change', e=>{ state.selectedUser=e.target.value; state.workCategory=''; state.punchMemo=''; renderPunch(); });
+      $('selectedUser').addEventListener('change', e=>{ state.selectedUser=e.target.value; state.workCategory=''; state.punchMemo=''; state.memoOpen=false; renderPunch(); });
+      $('memoToggle').addEventListener('click', ()=>{ state.memoOpen=true; renderTransportChoice(); $('punchMemo').focus(); });
       $('workCategory').addEventListener('change', e=>{ state.workCategory=e.target.value; });
       $('transportBus').addEventListener('click', ()=>{ state.punchTransport='バス・電車（交通費あり）'; renderTransportChoice(); });
       $('transportBike').addEventListener('click', ()=>{ state.punchTransport='自転車・その他（支給なし）'; renderTransportChoice(); });
@@ -583,19 +563,15 @@
         const tempEl = $('weatherTempLarge');
 
         if (iconEl) iconEl.textContent = info.emoji;
-        if (conditionEl) conditionEl.textContent = info.condition;
-        if (tempEl) {
-          const currentPart = currentTemp === null ? '--°C' : `現在 ${currentTemp}°C`;
-          const rangePart = (max === null || min === null) ? '' : ` <span>/</span> 最高${max}° 最低${min}°`;
-          tempEl.innerHTML = currentPart + rangePart;
-        }
+        if (conditionEl) conditionEl.textContent = currentTemp === null ? info.condition : `${info.condition} ${currentTemp}°`;
+        if (tempEl) tempEl.textContent = (max === null || min === null) ? '' : `最高${max}° 最低${min}°`;
       }catch(e){
         const iconEl = $('weatherIconLarge');
         const conditionEl = $('weatherConditionLarge');
         const tempEl = $('weatherTempLarge');
         if (iconEl) iconEl.textContent = '☁️';
-        if (conditionEl) conditionEl.textContent = '天気取得不可';
-        if (tempEl) tempEl.innerHTML = '現在 --°C <span>/</span> 最高--° 最低--°';
+        if (conditionEl) conditionEl.textContent = '天気 --';
+        if (tempEl) tempEl.textContent = '';
       }
     }
 
@@ -874,13 +850,13 @@
       const stateEl = $('punchState');
       if(stateEl){
         const hhmm = d => d ? `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : '';
-        stateEl.textContent = !shift ? '' : shift.state==='off' ? '未出勤です。「出勤」から押してください。' : shift.state==='working' ? `勤務中（${hhmm(shift.shiftStart)} 出勤）。次は「休憩開始」か「退勤」です。出勤は退勤するまで押せません。` : `休憩中（${hhmm(shift.since)} から）。次は「休憩終了」か「退勤」です。`;
+        stateEl.textContent = !shift ? '' : shift.state==='off' ? '未出勤' : shift.state==='working' ? `勤務中（${hhmm(shift.shiftStart)} 出勤）` : `休憩中（${hhmm(shift.since)}〜）`;
       }
       const shiftLine = $('punchShiftLine');
       if(shiftLine){
         const ts = state.selectedUser ? todayShiftFor(state.selectedUser) : null;
-        let text = ts ? `本日のシフト: ${ts.from}-${ts.to}` : '';
-        if(ts && shift && shift.state!=='off' && ts.to){ const over = clockMinutes(getJSTDateTime().display) - clockMinutes(ts.to); if(over>=60) text += ` ／ 終了から${Math.floor(over/60)}時間${over%60}分経っています。退勤を忘れていませんか？ 押し忘れた場合は下の「✏️ 修正依頼」から実際の時刻を入れられます。`; }
+        let text = ts ? `今日のシフト ${ts.from}-${ts.to}` : '';
+        if(ts && shift && shift.state!=='off' && ts.to){ const over = clockMinutes(getJSTDateTime().display) - clockMinutes(ts.to); if(over>=60) text += ` ／ 終了から${Math.floor(over/60)}時間${over%60}分。退勤忘れは「押し忘れの修正」へ`; }
         shiftLine.textContent = text; shiftLine.classList.toggle('hidden', !text);
       }
       renderFixEntry();
@@ -894,6 +870,8 @@
       $('transportBus').classList.toggle('active', state.punchTransport.indexOf('バス')===0);
       $('transportBike').classList.toggle('active', state.punchTransport.indexOf('自転車')===0);
       $('punchMemo').value = state.punchMemo;
+      const memoOpen = state.memoOpen || !!state.punchMemo;
+      $('memoBox').classList.toggle('hidden', !memoOpen); $('memoToggle').classList.toggle('hidden', memoOpen);
     }
     function logTag(type){ return type==='出勤'?'in':type==='退勤'?'out':'break'; }
     function renderRecentLogs(){
@@ -1971,7 +1949,7 @@
       const name=state.selectedUser, missing=name ? unclosedShift(name) : '';
       open.classList.toggle('hidden', !name);
       alert.classList.toggle('hidden', !missing);
-      if(missing){ $('fixAlertText').textContent=`⚠️ ${formatWithDayOfWeek(missing)} の出勤に退勤の記録がありません。`; $('fixAlertBtn').dataset.date=missing.slice(0,10); }
+      if(missing){ $('fixAlertText').textContent=`⚠️ ${formatWithDayOfWeek(missing)} 出勤の退勤がありません`; $('fixAlertBtn').dataset.date=missing.slice(0,10); }
     }
     function readAllocationInputs(){
       return ALLOCATION_ITEMS.map(item=>{const h=Number($(item.id+'_hours').value||0),m=Number($(item.id+'_minutes').value||0);return {id:item.id,minutes:Number.isInteger(h)&&h>=0&&h<=168&&Number.isInteger(m)&&m>=0&&m<=59?h*60+m:NaN,memo:$(item.id+'_memo').value.trim()};});
