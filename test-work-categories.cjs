@@ -8,7 +8,7 @@ assert.equal(punch('出勤','09:00').ok,true);assert.equal(punch('休憩開始',
 const alloc=gas.items.map(i=>({id:i.id,minutes:0,memo:''}));alloc[0].minutes=60;alloc[0].memo='伝票作成';alloc[8].minutes=105;alloc[8].memo='動画制作';
 assert.equal(punch('退勤','12:00',{allocations:'[]'}).error,'invalid_allocation');
 assert.equal(rows.length,4);
-const result=punch('退勤','12:00',{allocations:JSON.stringify(alloc)});assert.equal(result.ok,true);assert.equal(result.memo,'HWの生産（60分）：伝票作成｜HWAのテキスト制作（105分）：動画制作');assert.equal(rows[4][10],60/1440);assert.equal(rows[4][18],105/1440);assert.equal(JSON.parse(rows[4][20]).length,10);
+const result=punch('退勤','12:00',{allocations:JSON.stringify(alloc)});assert.equal(result.ok,true);assert.equal(result.memo,'HWの生産（60分）：伝票作成｜HWAの制作（105分）：動画制作');assert.equal(rows[4][10],60/1440);assert.equal(rows[4][18],105/1440);assert.equal(JSON.parse(rows[4][20]).length,10);
 assert.equal(punch('退勤','12:00',{allocations:JSON.stringify(alloc)}).duplicate,true);assert.equal(rows.length,5);
 assert.equal(punch('出勤','13:00',{name:'橋本'}).error,'invalid_category');
 // A second shift on the same day writes the day's periods into the memo of its checkout.
@@ -36,7 +36,7 @@ function el(id){if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',innerHTM
 const client={Date,URLSearchParams,Set,console,localStorage:{getItem(){return null},setItem(){}},window:{addEventListener(){},crypto:{randomUUID:()=> 'request-1'}},document:{getElementById:el,querySelectorAll:()=>[]},setTimeout(){return 1},clearTimeout(){}};vm.createContext(client);
 vm.runInContext(script.replace("if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();",`window.test={state,triggerPunchConfirmation,executePunch,calculateMonthlyStats,summarizeMonth,readAllocationInputs,syncLogsFromGAS,applyGasReadData,punchQueueIdle,shiftStateOf,setSend:fn=>{adminRequest=fn;},setSync:fn=>{performSync=fn;},prepare:()=>{renderAll=()=>{};renderPunch=()=>{};getJSTDateTime=()=>({full:'2026-09-17 12:00:00',monthOnly:'2026-09',display:'12:00'});}};`),client);
 const api=client.window.test;api.prepare();api.state.selectedUser='田中';api.state.users=['田中'];api.state.logs=rows.slice(1,4).map(r=>({id:r[5],name:r[1],type:r[2],time:r[3],month:r[4],category:r[8],transport:'',allocations:[]}));
-api.triggerPunchConfirmation('退勤');assert.equal(api.state.confirmPunch.targetMinutes,165);assert.match(el('confirmDetails').innerHTML,/HWAのテキスト制作/);assert.equal(api.state.confirmPunch.category,'業務配分');
+api.triggerPunchConfirmation('退勤');assert.equal(api.state.confirmPunch.targetMinutes,165);assert.match(el('confirmDetails').innerHTML,/HWAの制作/);assert.equal(api.state.confirmPunch.category,'業務配分');
 el('hw_production_hours').value='1';el('hw_production_memo').value='伝票作成';el('hwa_text_hours').value='1';el('hwa_text_minutes').value='45';el('hwa_text_memo').value='動画制作';
 el('hw_support_minutes').value='-1';assert.equal(Number.isNaN(api.readAllocationInputs()[1].minutes),true);el('hw_support_minutes').value='';
 assert.throws(()=>api.applyGasReadData({ok:false,error:'read_error'}),/read_error/);assert.throws(()=>api.applyGasReadData({ok:true}),/読み取れません/);
