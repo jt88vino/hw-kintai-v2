@@ -69,7 +69,7 @@ cache.set('attendance:recent','{"stale":true}');gas.addNotice_(ss,{text:'再掲'
 const html=fs.readFileSync('index.html','utf8'),script=html.match(/<script>([\s\S]*?)<\/script>/)[1];const nodes=new Map();
 function el(id){if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',innerHTML:'',disabled:false,querySelectorAll:()=>[],classList:{add(){},remove(){},toggle(){}}});return nodes.get(id);}
 const client={Date,URLSearchParams,Set,Map,console,localStorage:{getItem(){return null},setItem(){}},window:{addEventListener(){},crypto},document:{getElementById:el,querySelectorAll:()=>[]},setTimeout(){return 1},clearTimeout(){}};vm.createContext(client);
-vm.runInContext(script.replace("if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();",`window.test={state,monthGridDays,chipText,sortEntries,nextShiftFor,todayShiftFor,shiftEntriesFor,personColor,JP_HOLIDAYS,queueShiftOp,runShiftOps,reconcileShiftOps,applyGasReadData,renderNotices,renderTodayShifts,upcomingEvents,renderEvents,setSend:fn=>{adminRequest=fn;},prepare:()=>{renderAll=()=>{};renderPunch=()=>{};renderShift=()=>{};showStatus=()=>{};getJSTDateTime=()=>({full:'2026-09-24 10:00:00',monthOnly:'2026-09',display:'10:00'});}};`),client);
+vm.runInContext(script.replace("if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();",`window.test={state,monthGridDays,chipText,sortEntries,nextShiftFor,todayShiftFor,shiftEntriesFor,personColor,JP_HOLIDAYS,queueShiftOp,runShiftOps,reconcileShiftOps,applyGasReadData,renderNotices,renderTodayShifts,upcomingEvents,renderEvents,repeatShiftDates,defaultRepeatUntil,repeatPlan,openShiftModal,saveShiftEntry,setShiftKind,setSend:fn=>{adminRequest=fn;},prepare:()=>{renderAll=()=>{};renderPunch=()=>{};renderShift=()=>{};showStatus=()=>{};getJSTDateTime=()=>({full:'2026-09-24 10:00:00',monthOnly:'2026-09',display:'10:00'});}};`),client);
 const api=client.window.test;api.prepare();
 api.applyGasReadData({ok:true,logs:[],notices:[{id:'n1',text:'掲示',by:'管理者',at:'2026-09-24 22:00:00'}]});assert.equal(api.state.notices.length,1);api.renderNotices();assert.match(el('noticeList').innerHTML,/掲示/);assert.match(el('noticeAdminList').innerHTML,/削除/);
 let days=api.monthGridDays('2026-10');assert.equal(days[0],'2026-09-28');assert.equal(days[days.length-1],'2026-11-01');assert.equal(days.length,35);
@@ -100,5 +100,29 @@ assert.deepEqual(api.sortEntries(api.shiftEntriesFor('2026-09').filter(x=>x.star
  api.state.shiftData['2026-09'].entries.push(e('n2','休み','鈴木','2026-09-29'));api.reconcileShiftOps('2026-09');assert.equal(api.state.shiftOps.length,0);
  api.queueShiftOp({op:'add',id:'n3',entry:e('n3','休み','鈴木','2026-09-30'),by:'鈴木',sent:false});await api.runShiftOps();assert.equal(api.state.shiftOps[0].unconfirmed,true);
  sent=[];api.setSend(async p=>{sent.push(p);return {ok:true,id:p.id};});api.reconcileShiftOps('2026-09');await api.runShiftOps();assert.equal(sent.length,1);assert.equal(sent[0].id,'n3');assert.equal(api.state.shiftOps.length,0);
- console.log('PASS: notices need admin or token with date window and cache invalidation, シフト sheet creation, validation, duplicate id, display-format normalization, month filter and cache, delete by anyone with history, POST-only writes, month grid, holidays, chip labels, next/today shift, background add/delete, rejected and unconfirmed ops');
+ const same=(x,y)=>assert.equal(JSON.stringify(x),JSON.stringify(y));
+ // くり返し登録: chosen weekdays up to the end date, holidays and days the person already has left out, one add per day.
+ same(api.repeatShiftDates('2026-10-06','2026-10-31',[2,4]),['2026-10-06','2026-10-08','2026-10-13','2026-10-15','2026-10-20','2026-10-22','2026-10-27','2026-10-29']);
+ same(api.repeatShiftDates('2026-10-06','2026-10-05',[2]),[]);assert.equal(api.repeatShiftDates('2026-10-01','2027-12-31',[0,1,2,3,4,5,6]).length,93); // capped at 3 months
+ assert.equal(api.defaultRepeatUntil('2026-10-06'),'2026-10-31');assert.equal(api.defaultRepeatUntil('2026-10-28'),'2026-11-30');assert.equal(api.defaultRepeatUntil('2026-12-30'),'2027-01-31');
+ api.state.users=['橋本','松井'];api.state.shiftData['2026-11']={entries:[e('h1','有給','松井','2026-11-02')],changes:[]};
+ api.openShiftModal('2026-10-05');assert.equal(api.state.shiftRepeat.on,false);same(api.state.shiftRepeat.days,[1]);assert.equal(api.state.shiftRepeat.until,'2026-10-31');
+ el('shiftName').value='松井';api.state.shiftRepeat.on=true;api.state.shiftRepeat.days=[1,5];api.state.shiftRepeat.until='2026-11-06';
+ let plan=api.repeatPlan();same(plan.map(p=>p.day),['2026-10-05','2026-10-09','2026-10-12','2026-10-16','2026-10-19','2026-10-23','2026-10-26','2026-10-30','2026-11-02','2026-11-06']);
+ assert.equal(plan.find(p=>p.day==='2026-10-12').why,'祝日');assert.equal(plan.find(p=>p.day==='2026-10-12').on,false);assert.equal(plan.find(p=>p.day==='2026-11-02').why,'有給');assert.equal(plan.find(p=>p.day==='2026-11-02').fixed,true);
+ api.state.shiftRepeat.flip.add('2026-10-12');api.state.shiftRepeat.flip.add('2026-10-30');plan=api.repeatPlan();assert.equal(plan.find(p=>p.day==='2026-10-12').on,true);assert.equal(plan.find(p=>p.day==='2026-10-30').on,false);
+ el('shiftName').value='橋本';assert.equal(api.repeatPlan().find(p=>p.day==='2026-10-09').on,true);
+ el('shiftName').value='橋本';api.state.shiftRepeat.days=[5];api.state.shiftRepeat.until='2026-10-16';el('shiftStart').value='2026-10-01';same(api.repeatPlan().map(p=>[p.day,p.on,p.why||'']),[['2026-10-02',false,'登録済み'],['2026-10-09',true,''],['2026-10-16',true,'']]);
+ sent=[];api.setSend(async p=>{sent.push(p);return {ok:true,id:p.id};});
+ el('shiftStart').value='2026-10-05';el('shiftName').value='松井';el('shiftFrom').value='09:30';el('shiftTo').value='15:00';api.state.shiftRepeat.days=[1,5];api.state.shiftRepeat.until='2026-11-06';api.state.shiftRepeat.flip=new Set(['2026-10-30']);
+ api.saveShiftEntry();assert.equal(api.state.shiftRepeat,null);
+ const queued=api.state.shiftOps.map(o=>o.entry.start);same(queued,['2026-10-05','2026-10-09','2026-10-16','2026-10-19','2026-10-23','2026-10-26','2026-11-06']);
+ assert(api.state.shiftOps.every(o=>o.entry.kind==='シフト'&&o.entry.name==='松井'&&o.entry.end===o.entry.start&&o.entry.from==='09:30'&&o.entry.to==='15:00'));assert.equal(new Set(api.state.shiftOps.map(o=>o.id)).size,7);
+ await api.runShiftOps();assert.equal(sent.length,7);same(sent.map(p=>p.start),queued);assert.equal(api.state.shiftOps.length,0);
+ // Nothing left to add (or no end date) is refused in the form; an edit never repeats.
+ api.openShiftModal('2026-10-05');api.state.shiftRepeat.on=true;api.state.shiftRepeat.until='';el('shiftName').value='松井';api.saveShiftEntry();assert.match(el('shiftModalError').textContent,/いつまで/);assert.equal(api.state.shiftOps.length,0);
+ api.state.shiftRepeat.until='2026-10-05';api.state.shiftRepeat.days=[2];api.saveShiftEntry();assert.match(el('shiftModalError').textContent,/登録する日がありません/);
+ api.state.shiftRepeat.until='2027-03-01';api.state.shiftRepeat.days=[1];api.saveShiftEntry();assert.match(el('shiftModalError').textContent,/3か月/);
+ api.openShiftModal('2026-10-09',api.state.shiftData['2026-10'].entries.find(x=>x.id==='d'));assert.equal(api.state.shiftRepeat,null);
+ console.log('PASS: repeat shifts by weekday with holidays/filled days skipped and one add per day, notices need admin or token with date window and cache invalidation, シフト sheet creation, validation, duplicate id, display-format normalization, month filter and cache, delete by anyone with history, POST-only writes, month grid, holidays, chip labels, next/today shift, background add/delete, rejected and unconfirmed ops');
 })().catch(e=>{console.error(e);process.exitCode=1});

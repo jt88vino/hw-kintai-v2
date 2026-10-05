@@ -57,6 +57,7 @@
     .shift-chip.mine{outline:2px solid #4f46e5;outline-offset:-2px}.shift-chip.pending{opacity:.55;border:1px dashed #64748b}
     .shift-kinds{grid-template-columns:repeat(3,1fr)}.shift-form label{display:block;font-size:11px;font-weight:900;color:#64748b;margin-bottom:4px}
     .shift-form input,.shift-form select{box-sizing:border-box;width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px}
+    .repeat-box{border:1px solid var(--line);border-radius:12px;padding:10px 11px;background:#f8fafc}.shift-form .repeat-toggle{display:flex;align-items:center;gap:9px;font-size:13px;color:#334155;margin:0;cursor:pointer}.shift-form .repeat-toggle input{width:20px;height:20px;margin:0;padding:0;flex:none;accent-color:var(--indigo)}.weekday-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}.weekday-grid .choice{padding:9px 0;font-size:13px}.weekday-grid .choice.sat:not(.active){color:#2563eb}.weekday-grid .choice.sun:not(.active){color:#dc2626}.repeat-preview{font-size:12px;color:#334155;font-weight:800;margin-top:10px;line-height:1.5}.repeat-preview .note{display:block;font-size:10px;color:#64748b;font-weight:800;margin-top:2px}.repeat-dates{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}.repeat-date{border:1px solid #c7d2fe;background:#eef2ff;color:#3730a3;border-radius:999px;padding:6px 9px;font-size:12px;font-weight:900;line-height:1}.repeat-date.off{background:#fff;color:#94a3b8;border-style:dashed}.repeat-date.off b{text-decoration:line-through}.repeat-date small{font-size:9px;margin-left:3px}.repeat-date:disabled{opacity:.75;cursor:default}
     .tag.off{background:#e5e7eb;color:#4b5563}
     .kpi-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.kpi{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:10px 11px;min-width:0}.kpi small{display:block;font-size:10px;color:#64748b;font-weight:900}.kpi b{display:block;font-size:18px;font-weight:950;color:#1e293b;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.3;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.kpi b span{font-size:11px;color:#64748b;font-weight:900;margin:0 1px}.kpi.accent b{color:var(--indigo)}.kpi.over b{color:var(--rose)}.summary-sub{font-size:11px;font-weight:900;color:#475569;margin:14px 0 7px}.summary-note{font-size:11px;font-weight:900;margin-top:10px;line-height:1.5}.rank-list{display:flex;flex-direction:column;gap:7px}.rank-row{display:grid;grid-template-columns:minmax(48px,auto) minmax(0,1fr) auto;gap:8px;align-items:center}.rank-name{font-size:12px;font-weight:950;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:78px}.rank-name.over{color:var(--rose)}.rank-bar{height:9px;background:#e2e8f0;border-radius:99px;overflow:hidden}.rank-bar span{display:block;height:100%;background:var(--indigo);border-radius:99px}.rank-bar span.warn{background:#f59e0b}.rank-bar span.danger{background:#e11d48}.rank-val{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:950;color:#334155;white-space:nowrap;text-align:right;line-height:1.2}.rank-val.over{color:var(--rose)}.rank-val small{display:block;font-family:inherit;font-size:9px;color:#94a3b8;font-weight:900;margin-top:2px}.seg-bar{display:flex;height:12px;border-radius:99px;overflow:hidden;background:#e2e8f0;margin:0 0 8px}.seg-bar span{display:block;height:100%}.seg-legend{display:flex;flex-wrap:wrap;gap:5px 12px;font-size:10px;font-weight:900;color:#475569;line-height:1.5}.seg-legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px;vertical-align:-1px}
     .notice-card{background:#fffbeb;border-color:#fcd34d}.notice-item{padding:8px 0;border-bottom:1px dashed #fde68a;font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-word}.notice-item:last-child{border-bottom:0}.notice-meta{font-size:10px;color:#92400e;font-weight:800;margin-top:2px}
@@ -223,7 +224,15 @@
     <div class="stack" style="margin-top:12px">
       <div id="shiftKindRow"><label>種類</label><div id="shiftKindChoices" class="choice-grid shift-kinds"></div></div>
       <div id="shiftNameRow"><label for="shiftName">名前</label><select id="shiftName"></select></div>
-      <div class="allocation-time"><label style="flex:1">開始日<input id="shiftStart" type="date"></label><label id="shiftEndWrap" style="flex:1">終了日<input id="shiftEnd" type="date"></label></div>
+      <div class="allocation-time"><label style="flex:1"><span id="shiftStartText">開始日</span><input id="shiftStart" type="date"></label><label id="shiftEndWrap" style="flex:1">終了日<input id="shiftEnd" type="date"></label></div>
+      <div id="shiftRepeatRow" class="repeat-box hidden">
+        <label class="repeat-toggle"><input id="shiftRepeat" type="checkbox">毎週くり返す</label>
+        <div id="shiftRepeatBody" class="hidden">
+          <label style="margin-top:10px">曜日</label><div id="shiftRepeatDays" class="weekday-grid"></div>
+          <label style="margin-top:8px">いつまで<input id="shiftRepeatUntil" type="date"></label>
+          <div id="shiftRepeatPreview" class="repeat-preview"></div>
+        </div>
+      </div>
       <div id="shiftTimeRow"><label>時間</label><div id="shiftPatterns" class="choice-grid shift-kinds"></div><div class="allocation-time" style="margin-top:6px"><label style="flex:1">開始<input id="shiftFrom" type="time"></label><label style="flex:1">終了<input id="shiftTo" type="time"></label></div></div>
       <div id="shiftLabelRow"><label for="shiftLabel">内容</label><input id="shiftLabel" type="text" maxlength="60" placeholder="例：E・F瓶詰め、バイブル到着、二次試験本番"></div>
       <div><label for="shiftMemo">メモ（任意）</label><input id="shiftMemo" type="text" maxlength="200"></div>
@@ -305,6 +314,7 @@
       shiftEditing: null,
       shiftKind: 'シフト',
       shiftKinds: [],
+      shiftRepeat: null,
       fixDraft: null,
       fixMonths: {},
       notices: sanitizeNotices(safeGet('attendance_notices', [])),
@@ -453,6 +463,7 @@
         loadShiftMonth(getCurrentMonth(), true);
         { const ahead=new Date(); ahead.setDate(ahead.getDate()+7); const m=ymd(ahead).slice(0,7); if(m!==getCurrentMonth()) loadShiftMonth(m, true); }
         runShiftOps();
+        new Set(state.shiftOps.filter(o=>o.unconfirmed).map(o=>o.op==='add' ? o.entry.start.slice(0,7) : o.month)).forEach(m=>loadShiftMonth(m, true));
         // 別端末で名簿が変わった場合も、開きっぱなしの画面へ自動反映する。
         setInterval(()=>{
           if(!document.hidden && !state.isSyncing && !state.isPunchSubmitting) syncLogsFromGAS('auto');
@@ -500,6 +511,10 @@
       $('shiftDayClose').addEventListener('click', ()=>{ state.shiftDayOpen=false; renderShiftDay(); });
       $('shiftCancel').addEventListener('click', closeShiftModal);
       $('shiftSave').addEventListener('click', saveShiftEntry);
+      $('shiftRepeat').addEventListener('change', e=>{ if(!state.shiftRepeat) return; state.shiftRepeat.on=e.target.checked; renderShiftRepeat(); });
+      $('shiftRepeatUntil').addEventListener('change', e=>{ if(!state.shiftRepeat) return; state.shiftRepeat.until=e.target.value; state.shiftRepeat.untilTouched=true; renderShiftRepeat(); });
+      $('shiftStart').addEventListener('change', onShiftStartChange);
+      $('shiftName').addEventListener('change', ()=>{ if(state.shiftRepeat && state.shiftRepeat.on) renderShiftRepeat(); });
       $('noticePost').addEventListener('click', postNotice);
       $('headerRefresh').addEventListener('click', refreshAll);
       $('confirmDialogOk').addEventListener('click', ()=>settleConfirm(true));
@@ -1381,7 +1396,7 @@
       finally{ shiftLoading.delete(month); if(state.activeTab==='shift') renderShift(); if(state.activeTab==='punch') renderPunch(); }
     }
     let shiftOpRunning=null;
-    function queueShiftOp(op){ state.shiftOps.push(op); persistShiftOps(); if(state.activeTab==='shift') renderShift(); runShiftOps(); }
+    function queueShiftOp(op){ state.shiftOps.push(...[].concat(op)); persistShiftOps(); if(state.activeTab==='shift') renderShift(); runShiftOps(); }
     function runShiftOps(){
       if(shiftOpRunning) return shiftOpRunning;
       shiftOpRunning=Promise.resolve().then(async()=>{
@@ -1496,6 +1511,7 @@
       $('shiftModalTitle').textContent=eventOnly ? (editing?'予定・連絡を変更':'予定・連絡を追加') : (editing?'予定を変更':'予定を追加');
       $('shiftKindRow').classList.toggle('hidden', kinds.length===1);
       const sel=$('shiftName'); sel.innerHTML='<option value="">-- 名前を選択 --</option>'+state.users.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join(''); sel.value=e.name;
+      state.shiftRepeat=editing ? null : {on:false, days:[weekdayOf(e.start)], daysTouched:false, until:defaultRepeatUntil(e.start), untilTouched:false, flip:new Set(), tried:new Set()};
       $('shiftStart').value=e.start; $('shiftEnd').value=e.end; $('shiftFrom').value=e.from||''; $('shiftTo').value=e.to||''; $('shiftLabel').value=e.label||''; $('shiftMemo').value=e.memo||'';
       setShiftKind(e.kind); $('shiftModalError').classList.add('hidden'); $('shiftModal').classList.add('show');
     }
@@ -1510,16 +1526,71 @@
       const from=$('shiftFrom').value, to=$('shiftTo').value;
       $('shiftPatterns').innerHTML=SHIFT_PATTERNS.map(([f,t])=>`<button type="button" class="choice${from===f&&to===t?' active':''}" data-from="${f}" data-to="${t}">${f}-${t}</button>`).join('');
       $('shiftPatterns').querySelectorAll('[data-from]').forEach(b=>b.addEventListener('click',()=>{ $('shiftFrom').value=b.dataset.from; $('shiftTo').value=b.dataset.to; setShiftKind(state.shiftKind); }));
+
+      renderShiftRepeat();
     }
-    function closeShiftModal(){ $('shiftModal').classList.remove('show'); state.shiftEditing=null; }
+    // くり返し登録: 選んだ曜日の日を「いつまで」まで並べる。祝日と、その人の予定がもうある日は外しておき、日付のタップで入れる/外すを切り替える。
+    const REPEAT_LIMIT_DAYS=92;
+    function weekdayOf(day){ return new Date(day.replace(/-/g,'/')).getDay(); }
+    function addDays(day, n){ const d=new Date(day.replace(/-/g,'/')); d.setDate(d.getDate()+n); return ymd(d); }
+    function defaultRepeatUntil(start){ const [y,m,d]=start.split('-').map(Number), last=new Date(y,m,0); return ymd(last.getDate()-d<7 ? new Date(y,m+1,0) : last); } // late in the month: through next month
+    function repeatShiftDates(start, until, weekdays){
+      const out=[]; if(!/^\d{4}-\d{2}-\d{2}$/.test(start||'') || !/^\d{4}-\d{2}-\d{2}$/.test(until||'')) return out;
+      for(let i=0, day=start; i<=REPEAT_LIMIT_DAYS && day<=until; i++, day=addDays(start,i)) if(weekdays.includes(weekdayOf(day))) out.push(day);
+      return out;
+    }
+    function repeatPlan(){
+      const r=state.shiftRepeat, name=$('shiftName').value;
+      return repeatShiftDates($('shiftStart').value, r.until, r.days).map(day=>{
+        const own=name ? entriesOn(day.slice(0,7),day).filter(e=>e.name===name && e.kind!=='業務') : [];
+        if(own.length) return {day, on:false, fixed:true, why:own.some(e=>e.kind==='シフト'||e.kind==='出勤') ? '登録済み' : own[0].kind};
+        const hol=!!JP_HOLIDAYS[day], flipped=r.flip.has(day);
+        return {day, on:hol ? flipped : !flipped, why:hol ? '祝日' : ''};
+      });
+    }
+    function renderShiftRepeat(){
+      const r=state.shiftRepeat, shown=!!r && state.shiftKind==='シフト', on=shown && r.on;
+      $('shiftRepeatRow').classList.toggle('hidden', !shown); $('shiftRepeatBody').classList.toggle('hidden', !on); $('shiftRepeat').checked=on;
+      $('shiftStartText').textContent = on ? '最初の日' : state.shiftKind==='シフト' ? '日付' : '開始日';
+      $('shiftSave').textContent='登録する';
+      if(!on) return;
+      const start=$('shiftStart').value, dow=['日','月','火','水','木','金','土'];
+      $('shiftRepeatDays').innerHTML=[1,2,3,4,5,6,0].map(w=>`<button type="button" class="choice${r.days.includes(w)?' active':''}${w===6?' sat':w===0?' sun':''}" data-wd="${w}">${dow[w]}</button>`).join('');
+      $('shiftRepeatDays').querySelectorAll('[data-wd]').forEach(b=>b.addEventListener('click',()=>{ const w=Number(b.dataset.wd); r.days=r.days.includes(w) ? r.days.filter(x=>x!==w) : r.days.concat(w); r.daysTouched=true; renderShiftRepeat(); }));
+      const until=$('shiftRepeatUntil'); until.min=start; until.max=start ? addDays(start,REPEAT_LIMIT_DAYS) : ''; until.value=r.until;
+      const plan=repeatPlan(), count=plan.filter(p=>p.on).length, months=[...new Set(plan.map(p=>p.day.slice(0,7)))];
+      const waiting=months.filter(m=>!state.shiftData[m] && !r.tried.has(m)), unread=months.filter(m=>!state.shiftData[m] && r.tried.has(m)), mon=list=>list.map(m=>Number(m.slice(5))+'月').join('・');
+      $('shiftRepeatPreview').innerHTML = !r.days.length ? '曜日を選んでください' : !plan.length ? '対象の日がありません'
+        : `${count}日分<span class="note">タップで外せます${waiting.length?`／${mon(waiting)}を確認中…`:''}${unread.length?`／${mon(unread)}は重複を確認できていません`:''}</span>`
+          + `<div class="repeat-dates">${plan.map(p=>`<button type="button" class="repeat-date${p.on?'':' off'}" data-day="${p.day}"${p.fixed?' disabled':''}><b>${esc(fmtDay(p.day))}</b>${p.why?`<small>${esc(p.why)}</small>`:''}</button>`).join('')}</div>`;
+      $('shiftRepeatPreview').querySelectorAll('[data-day]:not([disabled])').forEach(b=>b.addEventListener('click',()=>{ const d=b.dataset.day; if(r.flip.has(d)) r.flip.delete(d); else r.flip.add(d); renderShiftRepeat(); }));
+      if(count) $('shiftSave').textContent=`${count}日分を登録する`;
+      // Months the calendar has not read yet are read now, so days already filled can be left out.
+      waiting.forEach(m=>{ r.tried.add(m); loadShiftMonth(m,true).then(()=>{ if(state.shiftRepeat===r) renderShiftRepeat(); }); });
+    }
+    function onShiftStartChange(){
+      const r=state.shiftRepeat, start=$('shiftStart').value; if(!r) return;
+      if(/^\d{4}-\d{2}-\d{2}$/.test(start)){
+        if(!r.daysTouched) r.days=[weekdayOf(start)];
+        if(!r.untilTouched || r.until<start) r.until=defaultRepeatUntil(start); else if(r.until>addDays(start,REPEAT_LIMIT_DAYS)) r.until=addDays(start,REPEAT_LIMIT_DAYS);
+      }
+      renderShiftRepeat();
+    }
+    function closeShiftModal(){ $('shiftModal').classList.remove('show'); state.shiftEditing=null; state.shiftRepeat=null; }
     function saveShiftEntry(){
       const kind=state.shiftKind, name=$('shiftName').value, start=$('shiftStart').value, end=kind==='シフト' ? start : ($('shiftEnd').value||start);
       const timed = kind==='シフト'||kind==='出勤';
       const from=timed?$('shiftFrom').value:'', to=timed?$('shiftTo').value:'', label=$('shiftLabel').value.trim(), memo=$('shiftMemo').value.trim();
-      const err = !/^\d{4}-\d{2}-\d{2}$/.test(start) ? '日付を入力してください。' : end<start ? '終了日は開始日以降にしてください。' : kind==='業務' ? (!label ? '業務の内容を入力してください。' : '') : !name ? '名前を選んでください。' : (kind==='シフト' && (!from||!to)) ? '開始と終了の時刻を入力してください。' : (from && to && to<=from) ? '終了時刻は開始より後にしてください。' : '';
+      const r=state.shiftRepeat, repeating=!!r && r.on && kind==='シフト' && !state.shiftEditing, days=repeating ? repeatPlan().filter(p=>p.on).map(p=>p.day) : [start];
+      let err = !/^\d{4}-\d{2}-\d{2}$/.test(start) ? '日付を入力してください。' : end<start ? '終了日は開始日以降にしてください。' : kind==='業務' ? (!label ? '業務の内容を入力してください。' : '') : !name ? '名前を選んでください。' : (kind==='シフト' && (!from||!to)) ? '開始と終了の時刻を入力してください。' : (from && to && to<=from) ? '終了時刻は開始より後にしてください。' : '';
+      if(!err && repeating) err = !/^\d{4}-\d{2}-\d{2}$/.test(r.until||'') ? '「いつまで」を入れてください。' : r.until>addDays(start,REPEAT_LIMIT_DAYS) ? '3か月先までにしてください。' : !days.length ? '登録する日がありません。' : '';
       if(err){ const box=$('shiftModalError'); box.textContent=err; box.classList.remove('hidden'); return; }
       const by = state.selectedUser || (state.isAdminAuthenticated ? '管理者' : (kind==='業務' ? '' : name));
       const entry={kind:kind,name:kind==='業務'?'':name,start:start,end:end,from:from,to:to,label:kind==='業務'?label:'',memo:memo};
+      if(repeating){
+        queueShiftOp(days.map(day=>({op:'add',id:window.crypto.randomUUID(),entry:Object.assign({},entry,{start:day,end:day}),by:by,sent:false})));
+        closeShiftModal(); showStatus(`シフトを${days.length}日分登録しました。`,'success'); return;
+      }
       if(state.shiftEditing) queueShiftOp({op:'delete',id:state.shiftEditing.id,month:state.shiftEditing.start.slice(0,7),by:by,sent:false});
       queueShiftOp({op:'add',id:window.crypto.randomUUID(),entry:entry,by:by,sent:false});
       const changed=!!state.shiftEditing; closeShiftModal(); showStatus(changed?'予定を変更しました。':'予定を登録しました。','success');
