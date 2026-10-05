@@ -15,7 +15,7 @@ let tmp=0;
 const client={Date,URL,URLSearchParams,AbortController,Set,Map,console,setTimeout:()=>1,clearTimeout(){},setInterval(){},localStorage:{getItem:()=>null,setItem(){}},window:{addEventListener(){},crypto},document:{getElementById:el,querySelectorAll:()=>[],createElement:()=>el('__tmp'+(++tmp))}};
 vm.createContext(client);
 const script=fs.readFileSync('index.html','utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
-vm.runInContext(script.replace("if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();",`window.api={state,correctionFit,unclosedShift,openFixModal,fixCheck,submitFix,triggerPunchConfirmation,executePunch,renderRecentLogs,renderPunch,calculateMonthlyStats,summarizeMonth,renderEvents,openShiftModal,resumePendingPunch,punchQueueIdle,setSend:fn=>{adminRequest=fn;},setRead:fn=>{readGASDataOnce=fn;},prepare:()=>{renderAll=()=>{};showStatus=t=>{el('statusMessage').textContent=t;};}};`),client);
+vm.runInContext(script.replace("if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();",`window.api={state,correctionFit,unclosedShift,openFixModal,fixCheck,fixDayCheck,submitFix,triggerPunchConfirmation,executePunch,renderRecentLogs,renderPunch,calculateMonthlyStats,summarizeMonth,renderEvents,openShiftModal,resumePendingPunch,punchQueueIdle,setSend:fn=>{adminRequest=fn;},setRead:fn=>{readGASDataOnce=fn;},prepare:()=>{renderAll=()=>{};showStatus=t=>{document.getElementById('statusMessage').textContent=t;};}};`),client);
 const api=client.window.api;api.prepare();
 const tick=()=>new Promise(r=>setImmediate(r));
 (async()=>{
@@ -56,6 +56,31 @@ const tick=()=>new Promise(r=>setImmediate(r));
    api.state.pendingPunch={gasUrl:api.state.gasUrl,log,receipt:crypto.randomUUID(),sent:true,error:'その時刻に出勤の記録がありません。',rejected:true};
    el('fixModal').classes.delete('show');api.resumePendingPunch();assert(el('fixModal').classes.has('show'));assert.equal(api.state.fixDraft.replaces,'r1');assert.equal(api.state.fixDraft.time,'15:00');
    assert.equal(el('fixError').textContent,'その時刻に出勤の記録がありません。');assert.equal(el('fixReason').value,'理由');api.state.pendingPunch=null; }
+ // ---- 1日分まとめて：押し忘れた日を最初から入れる（出勤→休憩→退勤を修正依頼として順に送る） ----
+ { api.state.selectedUser='橋本';api.state.pendingPunch=null;api.state.punchQueue=[];sent.length=0;
+   const day=at(4,9).slice(0,10);
+   api.openFixModal({mode:'day'});await tick();
+   const d=api.state.fixDraft;assert.equal(d.mode,'day');d.date=day;d.inTime='09:00';d.outTime='18:00';d.bs='12:00';d.be='13:00';
+   const dc=api.fixDayCheck();assert.equal(dc.ok,true);assert.equal(dc.minutes,480);assert.match(dc.preview,/09:00 出勤 → 12:00〜13:00 休憩 → 18:00 退勤（実働 8時間）/);
+   d.be='11:00';assert.match(api.fixDayCheck().error,/休憩は出勤と退勤のあいだ/);d.be='13:00';
+   d.outTime='08:00';assert.match(api.fixDayCheck().error,/退勤は出勤より後/);d.outTime='18:00';
+   d.be='';assert.match(api.fixDayCheck().preview,/休憩は開始と終了の両方/);d.be='13:00';
+   el('fixReason').value='丸一日押し忘れ';api.submitFix();
+   assert.equal(api.state.confirmPunch.day.steps.length,4);assert.equal(el('executePunch').textContent,'1日分を送る');assert.match(el('confirmDetails').innerHTML,/1日分をまとめて入れます/);
+   const drain=async()=>{ for(let i=0;i<20&&(api.state.pendingPunch||api.state.punchQueue.length);i++){ await api.punchQueueIdle();await tick(); } };
+   el('checkoutMemo').value='';await api.executePunch();await drain();
+   assert.equal(JSON.stringify(sent.map(p=>[p.type,p.time.slice(11,16),p.correction])),JSON.stringify([['出勤','09:00','1'],['休憩開始','12:00','1'],['休憩終了','13:00','1'],['退勤','18:00','1']]));
+   assert(sent.every(p=>p.reason==='丸一日押し忘れ'&&p.time.slice(0,10)===day));assert.equal(sent[0].transport,d.transport);assert.equal(sent[1].transport,'');
+   // その日の履歴にすべて出る。今日の履歴にも「今日送った修正」として日付つきで出る
+   api.state.historyDay=day;api.renderRecentLogs();{ const h=el('recentLogs').innerHTML;assert.match(h,/4件（うち修正 4件）/);assert.equal((h.match(/✏️ 修正/g)||[]).length,4);assert.match(h,/理由: 丸一日押し忘れ/); }
+   api.state.historyDay='';api.renderRecentLogs();assert.match(el('recentLogs').innerHTML,new RegExp(`${Number(day.slice(5,7))}/${Number(day.slice(8,10))} 18:00`));
+   // 業務配分の人は退勤の配分も入れる。合計が合わなければ1回目は知らせるだけで、2回目で送る
+   api.state.selectedUser='田中';sent.length=0;const day2=at(6,9).slice(0,10);
+   api.openFixModal({mode:'day'});await tick();Object.assign(api.state.fixDraft,{date:day2,inTime:'10:00',outTime:'15:00',bs:'',be:''});
+   assert.equal(api.fixDayCheck().minutes,300);api.submitFix();assert.equal(api.state.confirmPunch.targetMinutes,300);assert.match(el('confirmDetails').innerHTML,/入力した退勤時刻までの実働/);
+   el('checkoutMemo').value='';await api.executePunch();assert.equal(sent.length,0);assert.match(el('punchSendStatus').innerHTML,/実働より5時間少ない/);
+   await api.executePunch();await drain();assert.equal(JSON.stringify(sent.map(p=>p.type)),JSON.stringify(['出勤','退勤']));
+   assert(sent.every(p=>p.category==='業務配分'));assert.equal(JSON.parse(sent[1].allocations).length,10);api.state.selectedUser='橋本'; }
  // ---- 📌 予定・連絡: always on the punch screen with ＋ 追加; the calendar adds people only ----
  api.state.shiftData={};api.renderEvents();assert(!el('eventCard').classes.has('hidden'));assert.match(el('eventList').innerHTML,/ありません/);assert.match(el('eventSummary').textContent,/予定なし/);
  { const today=jst(Date.now()).slice(0,10);api.state.shiftData[today.slice(0,7)]={entries:[{id:'ev1',kind:'業務',name:'',start:today,end:today,from:'',to:'',label:'バイブル到着',memo:'',by:'',at:''}],changes:[]};
