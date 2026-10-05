@@ -7,13 +7,14 @@ const punch=(type,time,extra={})=>gas.addLog_(sheet,{id:'id-'+(++serial),name:'�
 assert.equal(punch('出勤','09:00').ok,true);assert.equal(punch('休憩開始','10:00').ok,true);assert.equal(punch('休憩終了','10:15').ok,true);
 const alloc=gas.items.map(i=>({id:i.id,minutes:0,memo:''}));alloc[0].minutes=60;alloc[0].memo='伝票作成';alloc[8].minutes=105;alloc[8].memo='動画制作';
 assert.equal(punch('退勤','12:00',{allocations:'[]'}).error,'invalid_allocation');
-const wrong=structuredClone(alloc);wrong[0].minutes=61;assert.equal(punch('退勤','12:00',{allocations:JSON.stringify(wrong)}).error,'allocation_mismatch');assert.equal(rows.length,4);
+assert.equal(rows.length,4);
 const result=punch('退勤','12:00',{allocations:JSON.stringify(alloc)});assert.equal(result.ok,true);assert.equal(result.memo,'HWの生産（60分）：伝票作成｜HWAのテキスト制作（105分）：動画制作');assert.equal(rows[4][10],60/1440);assert.equal(rows[4][18],105/1440);assert.equal(JSON.parse(rows[4][20]).length,10);
 assert.equal(punch('退勤','12:00',{allocations:JSON.stringify(alloc)}).duplicate,true);assert.equal(rows.length,5);
 assert.equal(punch('出勤','13:00',{name:'橋本'}).error,'invalid_category');
 // A second shift on the same day writes the day's periods into the memo of its checkout.
-assert.equal(punch('出勤','22:00').ok,true);const evening=gas.items.map(i=>({id:i.id,minutes:0,memo:''}));evening[1].minutes=60;
-const second=punch('退勤','23:00',{allocations:JSON.stringify(evening)});assert.equal(second.ok,true);assert.match(second.memo,/本日の勤務: 09:00〜12:00、22:00〜23:00/);assert.doesNotMatch(result.memo,/本日の勤務/);
+assert.equal(punch('出勤','22:00').ok,true);const evening=gas.items.map(i=>({id:i.id,minutes:0,memo:''}));evening[1].minutes=45;
+// 配分の合計（45分）が実働（60分）と合わなくても受け付け、差を備考に残す
+const second=punch('退勤','23:00',{allocations:JSON.stringify(evening)});assert.equal(second.ok,true);assert.match(second.memo,/HWのお問い合わせ（45分）｜配分合計45分／実働60分/);assert.match(second.memo,/本日の勤務: 09:00〜12:00、22:00〜23:00/);assert.doesNotMatch(result.memo,/本日の勤務/);
 const duplicate=structuredClone(alloc);duplicate[1].id=duplicate[0].id;assert.equal(gas.validateAllocations_(duplicate).ok,false);
 const bad=structuredClone(alloc);bad[0].minutes=-1;assert.equal(gas.validateAllocations_(bad).ok,false);
 const logs=[{name:'田中',type:'出勤',time:'2026-09-17 23:00:00'},{name:'田中',type:'休憩開始',time:'2026-09-18 00:00:00'},{name:'田中',type:'休憩終了',time:'2026-09-18 00:30:00'}];assert.equal(gas.shiftMinutes_(logs,'田中','2026-09-18 02:00:00'),150);
@@ -66,5 +67,5 @@ assert.throws(()=>api.applyGasReadData({ok:false,error:'read_error'}),/read_erro
  api.state.logs.push(w('w2','休憩開始','2026-09-17 10:00:00'));assert.equal(api.shiftStateOf('橋本').state,'break');api.triggerPunchConfirmation('休憩開始');assert.equal(api.state.confirmPunch,null);api.triggerPunchConfirmation('退勤');assert.equal(api.state.confirmPunch.punchType,'退勤');
  api.state.logs.push(w('w3','退勤','2026-09-17 11:00:00'));assert.equal(api.shiftStateOf('橋本').state,'off');api.state.confirmPunch=null;api.triggerPunchConfirmation('出勤');assert.equal(api.state.confirmPunch.punchType,'出勤');
  assert(vm.runInContext('CATEGORY_USERS',gas).includes('鈴木'));api.state.users=['鈴木'];api.state.selectedUser='鈴木';api.state.confirmPunch=null;api.triggerPunchConfirmation('出勤');assert.equal(api.state.confirmPunch.category,'業務配分');
- console.log('PASS: 10 allocations, net shift time, overnight break, unpadded sheet hours, 18-hour shift limit, second-shift memo, shift-state buttons, 鈴木 in work categories, mismatch/negative/duplicate rejection, pipe memo, sheet numeric durations, queued checkout confirmed in background, monthly categories, shared sync promise and failed response rejection');
+ console.log('PASS: 10 allocations, net shift time, overnight break, unpadded sheet hours, 18-hour shift limit, second-shift memo, shift-state buttons, 鈴木 in work categories, mismatch accepted with a memo note, negative/duplicate rejection, pipe memo, sheet numeric durations, queued checkout confirmed in background, monthly categories, shared sync promise and failed response rejection');
 })().catch(e=>{console.error(e);process.exitCode=1});

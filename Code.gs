@@ -255,11 +255,13 @@ function addLog_(sheet, params) {
       const history=correctionLogs || readIndexedRows_(sheet,(readIndex.sessions[name]||[]).map(n=>[n,n]));
       const actual = shiftMinutes_(history, name, time);
       if (actual === null) return {ok:false,error:"missing_clockin",message:"出勤の記録が見つかりません。同期して確認してください。"};
-      if (allocations.reduce((n,a)=>n+a.minutes,0)!==actual) return {ok:false,error:"allocation_mismatch",actualMinutes:actual,message:"配分合計を実働"+actual+"分に合わせてください。"};
+      // 配分の合計が実働と合わなくても受け付ける（2026-10-05 牛嶋さん指定：アプリが保存の前に知らせるだけ）。差は備考に残す
+      const allocated = allocations.reduce((n,a)=>n+a.minutes,0);
       const details=allocations.filter(a=>a.minutes>0 || a.memo).map(a=>{
         const item=ALLOCATION_ITEMS.find(i=>i.id===a.id);
         return item.label+"（"+a.minutes+"分）"+(a.memo?"："+String(a.memo).split(/[\r\n｜]+/).map(s=>s.trim()).filter(Boolean).join("｜"):"");
       });
+      if (allocated !== actual) details.push("配分合計"+allocated+"分／実働"+actual+"分");
       if(memo) details.push(memo);
       // A second shift on the same day cannot be read from one row of the member sheet,
       // so the day's working periods go into the memo as well.

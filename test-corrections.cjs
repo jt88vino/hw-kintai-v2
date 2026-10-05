@@ -80,10 +80,9 @@ assert.equal(post({requestId:'fix-1',name:'橋本',type:'退勤',time:at(2,15,30
 assert.equal(post({requestId:'fix-2',name:'橋本',type:'休憩開始',time:at(4,12)}).ok,true);
 assert.equal(post({requestId:'fix-3',name:'橋本',type:'休憩終了',time:at(4,12,30)}).ok,true);
 // 業務配分: the checkout needs the split of the hours up to the corrected time, taken from the sheet (the old open shift).
-{ const wrong=post({requestId:'fix-4',name:'田中',type:'退勤',time:at(2,13),category:'業務配分',allocations:JSON.stringify(ALLOC(0,60))});
-  assert.equal(wrong.error,'allocation_mismatch');assert.equal(wrong.actualMinutes,180);
-  const ok=post({requestId:'fix-5',name:'田中',type:'退勤',time:at(2,13),category:'業務配分',allocations:JSON.stringify(ALLOC(1,180))});
-  assert.equal(ok.ok,true);assert.match(ok.memo,/^【修正】押し忘れ（.*入力）｜HWのお問い合わせ（180分）$/);
+{ // 配分の合計（60分）が実働（180分）と合わなくても受け付け、差を備考に残す
+  const short=post({requestId:'fix-4',name:'田中',type:'退勤',time:at(2,13),category:'業務配分',allocations:JSON.stringify(ALLOC(0,60))});
+  assert.equal(short.ok,true);assert.match(short.memo,/^【修正】押し忘れ（.*入力）｜HWの生産（60分）｜配分合計60分／実働180分$/);
   assert.match(post({requestId:'fix-6',name:'田中',type:'休憩開始',time:at(3,10),category:'業務配分'}).message,/退勤済み/); }
 // ---- Reads: the flag rides along, and the punch screen sees a backdated correction ----
 { for(let k=1;k<=60;k++) master.rows.push(row('喜多',k%2?'出勤':'退勤',jst(NOW-k*5*60000),'k'+k));
