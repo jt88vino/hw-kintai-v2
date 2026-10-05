@@ -129,7 +129,7 @@
           <div id="fixAlert" class="fix-alert hidden" role="status"><span id="fixAlertText"></span><button id="fixAlertBtn" class="mini-btn" type="button">退勤を入力する</button></div>
           <button id="fixOpen" class="fix-link hidden" type="button">✏️ 押し忘れの修正</button>
         </div>
-        <div id="noticeCard" class="card notice-card hidden"><h3 class="card-title">📢 お知らせ</h3><div id="noticeList"></div></div>
+        <div id="noticeCard" class="card notice-card hidden"><button id="noticeToggle" class="card-toggle" type="button" aria-expanded="false" aria-controls="noticeBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📢 お知らせ</h3><div id="noticeSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><div id="noticeBody" class="hidden" style="margin-top:8px"><div id="noticeList"></div></div></div>
         <div id="eventCard" class="card notice-card"><div class="row" style="align-items:flex-start;gap:8px"><button id="eventToggle" class="card-toggle" style="flex:1;min-width:0" type="button" aria-expanded="false" aria-controls="eventBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📌 予定・連絡（1週間）</h3><div id="eventSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><button id="eventAdd" class="mini-btn" type="button" style="flex:none">＋ 追加</button></div><div id="eventBody" class="hidden" style="margin-top:8px"><div id="eventList"></div><p class="member-help" style="margin:8px 0 0">✏️ で変更、🗑 で削除できます。</p></div></div>
         <div id="todayShiftCard" class="card hidden"><button id="todayShiftToggle" class="card-toggle" type="button" aria-expanded="false" aria-controls="todayShiftBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📅 今日の出勤予定</h3><div id="todayShiftSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><div id="todayShiftBody" class="hidden" style="margin-top:8px"><div id="todayShiftList" class="log-list" style="max-height:none"></div></div></div>
         <div id="recentCard" class="card relative">
@@ -297,7 +297,7 @@
       fixDraft: null,
       fixMonths: {},
       notices: sanitizeNotices(safeGet('attendance_notices', [])),
-      collapsed: Object.assign({events:true, todayShift:true, monthDetail:true}, safeObject(safeGet('attendance_collapsed', {}))),
+      collapsed: Object.assign({events:true, todayShift:true, monthDetail:true, notices:true}, safeObject(safeGet('attendance_collapsed', {}))),
       appEtag: '',
       refreshing: false,
       deleteTargetLog: null,
@@ -499,7 +499,7 @@
       $('headerRefresh').addEventListener('click', refreshAll);
       $('confirmDialogOk').addEventListener('click', ()=>settleConfirm(true));
       $('confirmDialogCancel').addEventListener('click', ()=>settleConfirm(false));
-      [['eventToggle','events'],['todayShiftToggle','todayShift'],['statsToggle','monthDetail']].forEach(([id,key])=>{ const b=$(id); if(b) b.addEventListener('click', ()=>{ state.collapsed[key]=!state.collapsed[key]; safeSet('attendance_collapsed', state.collapsed); renderAll(); }); });
+      [['noticeToggle','notices'],['eventToggle','events'],['todayShiftToggle','todayShift'],['statsToggle','monthDetail']].forEach(([id,key])=>{ const b=$(id); if(b) b.addEventListener('click', ()=>{ state.collapsed[key]=!state.collapsed[key]; safeSet('attendance_collapsed', state.collapsed); renderAll(); }); });
       $('cancelDelete').addEventListener('click', closeDeleteModal);
       $('executeDelete').addEventListener('click', confirmDeleteLog);
       $('deletePassword').addEventListener('input', ()=> $('deleteError').classList.add('hidden'));
@@ -1287,6 +1287,11 @@
     function renderNotices(){
       const html = state.notices.map(n=>`<div class="notice-item">${esc(n.text)}<div class="notice-meta">${esc(n.by||'管理者')} ・ ${esc(shortWhen(n.at))}${n.until?` ・ ${esc(fmtDay(n.until))}まで`:''}</div></div>`).join('');
       [['noticeCard','noticeList']].forEach(([card,list])=>{ const c=$(card), l=$(list); if(!c||!l) return; c.classList.toggle('hidden',!state.notices.length); l.innerHTML=html; });
+      // 閉じていても最新の1行は見え、開くまでは 🆕 を付ける（開いたかどうかは端末ごとに覚える）
+      const open=!state.collapsed.notices, seen=new Set(safeGet('attendance_notice_seen',[]));
+      if(open && state.notices.some(n=>!seen.has(n.id))) safeSet('attendance_notice_seen', state.notices.map(n=>n.id));
+      const latest=state.notices[0], fresh=!open && state.notices.some(n=>!seen.has(n.id));
+      applyCollapse('noticeToggle','noticeBody','noticeSummary',open, latest ? `${fresh?'🆕 ':''}${latest.text.split('\n')[0]}${state.notices.length>1?`（${state.notices.length}件）`:''}` : '');
       const admin=$('noticeAdminList');
       if(admin){
         admin.innerHTML = state.notices.length ? state.notices.map(n=>`<div class="member-row"><div style="min-width:0"><div style="font-size:12px;white-space:pre-wrap;word-break:break-word">${esc(n.text)}</div><small>${esc(shortWhen(n.at))}${n.until?` ・ ${esc(fmtDay(n.until))}まで`:''}</small></div><button class="mini-btn" type="button" data-notice-delete="${esc(n.id)}">削除</button></div>`).join('') : '<div class="empty">掲載中のお知らせはありません。</div>';

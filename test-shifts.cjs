@@ -72,6 +72,8 @@ const client={Date,URLSearchParams,Set,Map,console,localStorage:{getItem(){retur
 vm.runInContext(script.replace("if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();",`window.test={state,monthGridDays,chipText,sortEntries,nextShiftFor,todayShiftFor,shiftEntriesFor,personColor,JP_HOLIDAYS,queueShiftOp,runShiftOps,reconcileShiftOps,applyGasReadData,renderNotices,renderTodayShifts,upcomingEvents,renderEvents,repeatShiftDates,defaultRepeatUntil,repeatPlan,openShiftModal,saveShiftEntry,setShiftKind,setSend:fn=>{adminRequest=fn;},prepare:()=>{renderAll=()=>{};renderPunch=()=>{};renderShift=()=>{};showStatus=()=>{};getJSTDateTime=()=>({full:'2026-09-24 10:00:00',monthOnly:'2026-09',display:'10:00'});}};`),client);
 const api=client.window.test;api.prepare();
 api.applyGasReadData({ok:true,logs:[],notices:[{id:'n1',text:'掲示',by:'管理者',at:'2026-09-24 22:00:00'}]});assert.equal(api.state.notices.length,1);api.renderNotices();assert.match(el('noticeList').innerHTML,/掲示/);assert.match(el('noticeAdminList').innerHTML,/削除/);
+// お知らせは閉じた状態が既定。見出しに最新の1行、開くまでは 🆕。開いていれば印なし
+assert.equal(el('noticeSummary').textContent,'🆕 掲示');api.state.collapsed.notices=false;api.renderNotices();assert.equal(el('noticeSummary').textContent,'掲示');api.state.collapsed.notices=true;
 let days=api.monthGridDays('2026-10');assert.equal(days[0],'2026-09-28');assert.equal(days[days.length-1],'2026-11-01');assert.equal(days.length,35);
 days=api.monthGridDays('2026-09');assert.equal(days[0],'2026-08-31');assert.equal(days.length,35);assert.equal(api.monthGridDays('2026-11').length,42);
 assert.equal(api.JP_HOLIDAYS['2026-09-21'],'敬老の日');assert.equal(api.JP_HOLIDAYS['2027-03-22'],'振替休日');
