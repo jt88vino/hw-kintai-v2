@@ -128,6 +128,7 @@
           <p id="punchState" class="member-help" style="margin:10px 0 0" role="status" aria-live="polite"></p>
           <p id="punchShiftLine" class="member-help hidden" style="margin:6px 0 0"></p>
           <div id="fixAlert" class="fix-alert hidden" role="status"><span id="fixAlertText"></span><button id="fixAlertBtn" class="mini-btn" type="button">退勤を入力する</button></div>
+          <button id="breakFixBtn" class="fix-link hidden" type="button">⏱ 休憩終了を押し忘れたとき</button>
           <button id="fixOpen" class="fix-link hidden" type="button">✏️ 押し忘れの修正・1日分の手入力</button>
         </div>
         <div id="noticeCard" class="card notice-card hidden"><button id="noticeToggle" class="card-toggle" type="button" aria-expanded="false" aria-controls="noticeBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📢 お知らせ</h3><div id="noticeSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><div id="noticeBody" class="hidden" style="margin-top:8px"><div id="noticeList"></div></div></div>
@@ -223,9 +224,10 @@
     <div class="stack" style="margin-top:12px">
       <div class="fix-banner">入れた打刻はすぐ勤怠に反映されます。修正した打刻はアプリとスプレッドシートに<b>赤字</b>で残り、管理者が確認できます。</div>
       <div><label>名前</label><div id="fixName" style="font-size:15px;font-weight:950;color:#1e293b"></div></div>
-      <div><label>入れ方</label><div id="fixModes" class="choice-grid"><button type="button" class="choice" data-fix-mode="one">1回分</button><button type="button" class="choice" data-fix-mode="day">1日分まとめて</button></div></div>
+      <div><label>入れ方</label><div id="fixModes" class="choice-grid" style="grid-template-columns:repeat(3,1fr)"><button type="button" class="choice" data-fix-mode="one">1回分</button><button type="button" class="choice" data-fix-mode="break">休憩</button><button type="button" class="choice" data-fix-mode="day">1日分まとめて</button></div></div>
       <div id="fixTypeRow"><label>区分</label><div id="fixTypes" class="choice-grid" style="grid-template-columns:repeat(4,1fr);gap:6px"></div></div>
       <div class="allocation-time"><label style="flex:1">日付<input id="fixDate" type="date"></label><label id="fixTimeWrap" style="flex:1">時刻<input id="fixTime" type="time"></label></div>
+      <div id="fixPairRow" class="hidden"><div class="allocation-time"><label style="flex:1">休憩 開始<input id="fixPairStart" type="time"></label><label style="flex:1">休憩 終了<input id="fixPairEnd" type="time"></label></div></div>
       <div id="fixDayRow" class="hidden"><div class="allocation-time"><label style="flex:1">出勤<input id="fixIn" type="time"></label><label style="flex:1">退勤<input id="fixOut" type="time"></label></div><div class="allocation-time"><label style="flex:1">休憩 開始（任意）<input id="fixBreakStart" type="time"></label><label style="flex:1">休憩 終了<input id="fixBreakEnd" type="time"></label></div></div>
       <div id="fixTransportRow" class="hidden"><label>交通機関</label><div class="choice-grid"><button id="fixBus" class="choice" type="button">🚌 バス・電車</button><button id="fixBike" class="choice" type="button">🚲 自転車・他</button></div></div>
       <div><label for="fixReason">理由（任意）</label><input id="fixReason" type="text" maxlength="100" placeholder="例：退勤を押し忘れました"></div>
@@ -485,14 +487,15 @@
       window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); installPrompt=e; renderInstallTip(); });
       window.addEventListener('appinstalled', ()=>{ installPrompt=null; safeSet('attendance_install_tip','done'); renderInstallTip(); });
       $('fixOpen').addEventListener('click', ()=>openFixModal());
-      $('fixAlertBtn').addEventListener('click', e=>openFixModal({type:'退勤',date:e.currentTarget.dataset.date||''}));
+      $('breakFixBtn').addEventListener('click', ()=>openFixModal({type:'休憩終了'}));
+      $('fixAlertBtn').addEventListener('click', e=>openFixModal({type:e.currentTarget.dataset.type||'退勤',date:e.currentTarget.dataset.date||''}));
       $('fixCancel').addEventListener('click', closeFixModal);
       $('fixNext').addEventListener('click', submitFix);
       document.querySelectorAll('[data-fix-mode]').forEach(b=>b.addEventListener('click', ()=>{ if(!state.fixDraft) return; state.fixDraft.mode=b.dataset.fixMode; renderFix(); }));
-      [['fixIn','inTime'],['fixOut','outTime'],['fixBreakStart','bs'],['fixBreakEnd','be']].forEach(([id,key])=>['input','change'].forEach(ev=>$(id).addEventListener(ev, e=>{ if(!state.fixDraft) return; state.fixDraft[key]=e.target.value; renderFix(); })));
+      [['fixIn','inTime'],['fixOut','outTime'],['fixBreakStart','bs'],['fixBreakEnd','be'],['fixPairStart','pairStart'],['fixPairEnd','pairEnd']].forEach(([id,key])=>['input','change'].forEach(ev=>$(id).addEventListener(ev, e=>{ if(!state.fixDraft) return; state.fixDraft[key]=e.target.value; renderFix(); })));
       $('historyPrev').addEventListener('click', ()=>shiftHistoryDay(-1));
       $('historyNext').addEventListener('click', ()=>shiftHistoryDay(1));
-      $('fixDate').addEventListener('change', e=>{ if(!state.fixDraft) return; state.fixDraft.date=e.target.value; loadFixMonth(e.target.value.slice(0,7)); renderFix(); });
+      $('fixDate').addEventListener('change', e=>{ if(!state.fixDraft) return; state.fixDraft.date=e.target.value; state.fixDraft.autoDate=false; loadFixMonth(e.target.value.slice(0,7)); renderFix(); });
       ['input','change'].forEach(ev=>$('fixTime').addEventListener(ev, e=>{ if(!state.fixDraft) return; state.fixDraft.time=e.target.value; renderFix(); }));
       $('fixBus').addEventListener('click', ()=>{ if(!state.fixDraft) return; state.fixDraft.transport='バス・電車（交通費あり）'; renderFix(); });
       $('fixBike').addEventListener('click', ()=>{ if(!state.fixDraft) return; state.fixDraft.transport='自転車・その他（支給なし）'; renderFix(); });
@@ -853,12 +856,12 @@
       select.disabled = state.isPunchSubmitting;
       $('transportCard').classList.toggle('hidden', !state.selectedUser);
       const shift = state.selectedUser ? shiftStateOf(state.selectedUser) : null;
-      const allowed = {'出勤': !shift || shift.state==='off', '退勤': !!shift && shift.state!=='off', '休憩開始': !!shift && shift.state==='working', '休憩終了': !!shift && shift.state==='break'};
+      const allowed = {'出勤': !shift || shift.state==='off', '退勤': !!shift && shift.state==='working', '休憩開始': !!shift && shift.state==='working', '休憩終了': !!shift && shift.state==='break'};
       $$('.punch-btn').forEach(btn => btn.disabled = !state.selectedUser || state.isPunchSubmitting || headStuck() || (state.gasUrl && state.readOnlyStartup) || !allowed[btn.dataset.punch]);
       const stateEl = $('punchState');
       if(stateEl){
         const hhmm = d => d ? `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : '';
-        stateEl.textContent = !shift ? '' : shift.state==='off' ? '未出勤' : shift.state==='working' ? `勤務中（${hhmm(shift.shiftStart)} 出勤）` : `休憩中（${hhmm(shift.since)}〜）`;
+        stateEl.textContent = !shift ? '' : shift.state==='off' ? '未出勤' : shift.state==='working' ? `勤務中（${hhmm(shift.shiftStart)} 出勤）` : `休憩中（${hhmm(shift.since)}〜）・退勤は休憩終了のあと`;
       }
       const shiftLine = $('punchShiftLine');
       if(shiftLine){
@@ -867,6 +870,7 @@
         if(ts && shift && shift.state!=='off' && ts.to){ const over = clockMinutes(getJSTDateTime().display) - clockMinutes(ts.to); if(over>=60) text += ` ／ 終了から${Math.floor(over/60)}時間${over%60}分。退勤忘れは「押し忘れの修正」へ`; }
         shiftLine.textContent = text; shiftLine.classList.toggle('hidden', !text);
       }
+      $('breakFixBtn').classList.toggle('hidden', !(shift && shift.state==='break'));
       renderFixEntry();
       renderTransportChoice();
       renderTodayShifts();
@@ -1906,21 +1910,36 @@
       }
       const broken=mine.filter(l=>before[l.id].ok && !after[l.id].ok).sort((a,b)=>a.t-b.t)[0];
       if(broken) return `この時刻に入れると、${fixClock(broken.t)} の${broken.type}が無効になります。時刻を確認してください。`;
-      if(category==='業務配分' && type!=='退勤' && mine.some(l=>l.type==='退勤' && l.t>t && after[l.id].ok && after[l.id].shift===after.__fix.shift))
-        return 'この勤務は退勤済み（業務配分も入力済み）のため、あとから入れられません。管理者に修正を依頼してください。';
       return null;
     }
     // The latest shift that ran past 18 hours without a clock-out, within the correction window ('' if none).
-    function unclosedShift(name){
-      const now=Date.now(); let active=false, start=0, startTime='', found='';
-      withPending(state.logs).filter(l=>l.name===name).map(l=>({type:l.type,t:fixMs(l.time),time:l.time})).filter(l=>Number.isFinite(l.t)).sort((a,b)=>a.t-b.t).forEach(l=>{
-        if(active && l.t-start>SHIFT_LIMIT_MS){ found=startTime; active=false; }
-        if(l.type==='出勤' && !active){ active=true; start=l.t; startTime=l.time; }
+    // 退勤のない古い出勤を探す。見つかれば {time, onBreak}（休憩中のまま終わっていれば onBreak）
+    function unclosedIn(list, name){
+      const now=Date.now(); let active=false, working=false, start=0, startTime='', found=null;
+      list.filter(l=>l.name===name).map(l=>({type:l.type,t:fixMs(l.time),time:l.time})).filter(l=>Number.isFinite(l.t)).sort((a,b)=>a.t-b.t).forEach(l=>{
+        if(active && l.t-start>SHIFT_LIMIT_MS){ found={time:startTime,onBreak:!working}; active=false; }
+        if(l.type==='出勤' && !active){ active=true; working=true; start=l.t; startTime=l.time; }
+        else if(l.type==='休憩開始' && active) working=false;
+        else if(l.type==='休憩終了' && active) working=true;
         else if(l.type==='退勤') active=false;
       });
-      if(active && now-start>SHIFT_LIMIT_MS) found=startTime;
-      return found && now-fixMs(found)<=CORRECTION_MAX_DAYS*86400000 ? normalizeTimeString(found) : '';
+      if(active && now-start>SHIFT_LIMIT_MS) found={time:startTime,onBreak:!working};
+      return found && now-fixMs(found.time)<=CORRECTION_MAX_DAYS*86400000 ? {time:normalizeTimeString(found.time),onBreak:found.onBreak} : null;
     }
+    // 直近の読み込みには、古い修正の行だけが入っていることがある（同じ日のほかの打刻は入っていない）。
+    // そのまま判断すると「退勤がありません」の誤報になるので、その月（と翌月）の記録をすべて読んでから確かめる
+    function unclosedShiftInfo(name){
+      const quick=unclosedIn(withPending(state.logs), name); if(!quick) return null;
+      const months=[quick.time.slice(0,7)], next=addMonths(months[0],1);
+      if(next<=getCurrentMonth()) months.push(next);
+      let ready=true;
+      months.forEach(m=>{ const st=state.fixMonths[m]; if(!st) loadFixMonth(m); if(!st || st.status!=='ready') ready=false; });
+      if(!ready) return null;
+      const seen=new Set(), list=[];
+      months.forEach(m=>fixHistory(m).forEach(l=>{ if(!seen.has(l.id)){ seen.add(l.id); list.push(l); } }));
+      return unclosedIn(list, name);
+    }
+    function unclosedShift(name){ const u=unclosedShiftInfo(name); return u ? u.time : ''; }
     // The member's record for a month: recent punches (with those on their way) plus the month read.
     function fixHistory(month){
       const seen=new Set(), out=[], cached=state.fixMonths[month];
@@ -1936,21 +1955,28 @@
         if(!data || data.ok===false || !Array.isArray(data.logs)) throw new Error('read');
         state.fixMonths[month]={status:'ready',logs:sanitizeLogs(data.logs)};
       }catch(e){ state.fixMonths[month]={status:'failed',logs:[]}; }
-      renderFix(); renderRecentLogs();
+      refreshFixDefaults(); renderFix(); renderRecentLogs(); renderFixEntry();
     }
     function openFixModal(preset){
       preset=preset||{};
       if(!state.selectedUser){ showStatus('先に名前を選択してください。','error'); return; }
-      const name=state.selectedUser, shift=shiftStateOf(name), open=unclosedShift(name), today=todayYmd();
-      const type=preset.type || (shift.state!=='off' || open ? '退勤' : '出勤');
+      const name=state.selectedUser, shift=shiftStateOf(name), info=unclosedShiftInfo(name), open=info?info.time:'', today=todayYmd();
+      const type=preset.type || (shift.state==='break' ? '休憩終了' : shift.state!=='off' ? '退勤' : info ? (info.onBreak?'休憩終了':'退勤') : '出勤');
       const date=preset.date || (shift.state!=='off' && shift.shiftStart ? ymd(shift.shiftStart) : open ? open.slice(0,10) : today);
-      state.fixDraft={name,type,date,time:preset.time||'',transport:preset.transport||state.punchTransport,replaces:preset.replaces||'',mode:preset.mode||'one',inTime:'',outTime:'',bs:'',be:''};
-      ['fixIn','fixOut','fixBreakStart','fixBreakEnd'].forEach(id=>{ $(id).value=''; });
+      state.fixDraft={name,type,date,time:preset.time||'',transport:preset.transport||state.punchTransport,replaces:preset.replaces||'',mode:preset.mode||'one',inTime:'',outTime:'',bs:'',be:'',pairStart:'',pairEnd:'',autoDate:!preset.date,autoType:!preset.type};
+      ['fixIn','fixOut','fixBreakStart','fixBreakEnd','fixPairStart','fixPairEnd'].forEach(id=>{ $(id).value=''; });
       $('fixName').textContent=`${name} さん`;
       $('fixDate').min=ymd(new Date(Date.now()-CORRECTION_MAX_DAYS*86400000)); $('fixDate').max=today;
       $('fixDate').value=date; $('fixTime').value=state.fixDraft.time; $('fixReason').value=preset.reason||'';
       $('fixModal').classList.add('show');
       renderFix(); loadFixMonth(date.slice(0,7));
+    }
+    function refreshFixDefaults(){
+      const d=state.fixDraft; if(!d || !d.autoDate || !$('fixModal').classList.contains('show')) return;
+      const info=unclosedShiftInfo(d.name); if(!info) return;
+      const day=info.time.slice(0,10); if(d.date===day) return;
+      d.date=day; $('fixDate').value=day; if(d.autoType) d.type=info.onBreak?'休憩終了':'退勤';
+      loadFixMonth(day.slice(0,7));
     }
     function closeFixModal(){ $('fixModal').classList.remove('show'); }
     function fixCheck(){
@@ -1974,14 +2000,14 @@
     function renderFix(){
       const d=state.fixDraft; if(!d) return;
       $('fixTypes').innerHTML=FIX_TYPES.map(t=>`<button type="button" class="choice${t===d.type?' active':''}" data-fix-type="${t}">${t}</button>`).join('');
-      $('fixTypes').querySelectorAll('[data-fix-type]').forEach(b=>b.addEventListener('click',()=>{ d.type=b.dataset.fixType; renderFix(); }));
-      const day=d.mode==='day';
-      document.querySelectorAll('[data-fix-mode]').forEach(b=>b.classList.toggle('active', b.dataset.fixMode===(day?'day':'one')));
-      $('fixTypeRow').classList.toggle('hidden', day); $('fixTimeWrap').classList.toggle('hidden', day); $('fixDayRow').classList.toggle('hidden', !day);
-      $('fixTransportRow').classList.toggle('hidden', !day && d.type!=='出勤');
+      $('fixTypes').querySelectorAll('[data-fix-type]').forEach(b=>b.addEventListener('click',()=>{ d.type=b.dataset.fixType; d.autoType=false; renderFix(); }));
+      const day=d.mode==='day', pair=d.mode==='break';
+      document.querySelectorAll('[data-fix-mode]').forEach(b=>b.classList.toggle('active', b.dataset.fixMode===(day?'day':pair?'break':'one')));
+      $('fixTypeRow').classList.toggle('hidden', day||pair); $('fixTimeWrap').classList.toggle('hidden', day||pair); $('fixDayRow').classList.toggle('hidden', !day); $('fixPairRow').classList.toggle('hidden', !pair);
+      $('fixTransportRow').classList.toggle('hidden', !day && (pair || d.type!=='出勤'));
       $('fixBus').classList.toggle('active', String(d.transport).indexOf('バス')===0);
       $('fixBike').classList.toggle('active', String(d.transport).indexOf('バス')!==0);
-      const c=day ? fixDayCheck() : fixCheck(); $('fixPreview').innerHTML=c.preview||'';
+      const c=day ? fixDayCheck() : pair ? fixPairCheck() : fixCheck(); $('fixPreview').innerHTML=c.preview||'';
       $('fixError').textContent=c.error||''; $('fixError').classList.toggle('hidden', !c.error);
       $('fixNext').disabled=!c.ok;
     }
@@ -2015,9 +2041,36 @@
       if(cached && cached.status==='failed') preview+='<br><small>記録を読み込めなかったため、最終確認は送信時に行います。</small>';
       return {ok:true,preview,steps,minutes};
     }
+    function fixPairCheck(){
+      const d=state.fixDraft||{}, month=String(d.date||'').slice(0,7), cached=state.fixMonths[month], hhmm=/^\d{2}:\d{2}$/;
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(d.date||'')) return {ok:false,preview:'日付を選んでください。'};
+      if(!hhmm.test(d.pairStart||'') || !hhmm.test(d.pairEnd||'')) return {ok:false,preview:'休憩の開始と終了を入れてください。'};
+      if(d.pairEnd<=d.pairStart) return {ok:false,preview:'',error:'休憩の終了は開始より後にしてください。'};
+      const steps=[{type:'休憩開始',full:`${d.date} ${d.pairStart}:00`},{type:'休憩終了',full:`${d.date} ${d.pairEnd}:00`}];
+      if(fixMs(steps[1].full)>Date.now()+60000) return {ok:false,preview:'',error:'これからの時刻は入れられません。'};
+      if(Date.now()-fixMs(steps[0].full)>CORRECTION_MAX_DAYS*86400000) return {ok:false,preview:'',error:`${CORRECTION_MAX_DAYS}日より前は入れられません。管理者に連絡してください。`};
+      if(cached && cached.status==='loading') return {ok:false,preview:'記録を確認しています…'};
+      const history=fixHistory(month).slice();
+      for(const st of steps){
+        const err=correctionFit(history,d.name,st.type,st.full);
+        if(err) return {ok:false,preview:'',error:`${st.type} ${st.full.slice(11,16)}：${err}`};
+        history.push({id:'__pair'+history.length,name:d.name,type:st.type,time:st.full});
+      }
+      let preview=`<b>${esc(fmtDay(d.date))}</b> ${esc(d.pairStart)}〜${esc(d.pairEnd)} の休憩（${hm(clockMinutes(d.pairEnd)-clockMinutes(d.pairStart))}）を入れます。`;
+      if(cached && cached.status==='failed') preview+='<br><small>記録を読み込めなかったため、最終確認は送信時に行います。</small>';
+      return {ok:true,preview,steps};
+    }
+    function openPairConfirmation(d,c){
+      const category=CATEGORY_USERS.includes(d.name)?'業務配分':'', reason=$('fixReason').value.trim().slice(0,100), last=c.steps[1];
+      state.confirmPunch={userName:d.name,punchType:'休憩終了',category,fixedTime:{full:last.full,monthOnly:d.date.slice(0,7),display:d.pairEnd},targetMinutes:null,transport:'',memo:'',correction:{reason},replaces:'',day:{steps:c.steps,transport:'',reason,label:'休憩'}};
+      $('confirmDetails').innerHTML=`<div class="fix-banner">✏️ 修正依頼: <b>${esc(fmtDay(d.date))}</b> の休憩を入れます。すぐ勤怠に反映され、赤字で残ります。${reason?`<br>理由: ${esc(reason)}`:''}</div><div class="row"><span>お名前:</span><span>${esc(d.name)} さん</span></div>`
+        +c.steps.map(st=>`<div class="row"><span>${esc(st.type)}:</span><span>${esc(st.full.slice(11,16))}</span></div>`).join('')+'<div id="punchSendStatus" role="status" aria-live="polite"></div>';
+      $('executePunch').textContent='休憩を送る'; $('cancelPunch').textContent='キャンセル';
+      $('confirmModal').classList.add('show');
+    }
     function openDayConfirmation(d,c){
       const category=CATEGORY_USERS.includes(d.name)?'業務配分':'', reason=$('fixReason').value.trim().slice(0,100), last=c.steps[c.steps.length-1];
-      state.confirmPunch={userName:d.name,punchType:'退勤',category,fixedTime:{full:last.full,monthOnly:d.date.slice(0,7),display:d.outTime},targetMinutes:category?c.minutes:null,transport:d.transport,memo:'',correction:{reason},replaces:'',day:{steps:c.steps,transport:d.transport,reason}};
+      state.confirmPunch={userName:d.name,punchType:'退勤',category,fixedTime:{full:last.full,monthOnly:d.date.slice(0,7),display:d.outTime},targetMinutes:category?c.minutes:null,transport:d.transport,memo:'',correction:{reason},replaces:'',day:{steps:c.steps,transport:d.transport,reason,label:'1日分'}};
       $('confirmDetails').innerHTML=`<div class="fix-banner">✏️ 修正依頼: <b>${esc(fmtDay(d.date))}</b> の1日分をまとめて入れます。すぐ勤怠に反映され、赤字で残ります。${reason?`<br>理由: ${esc(reason)}`:''}</div><div class="row"><span>お名前:</span><span>${esc(d.name)} さん</span></div>`
         +c.steps.map(st=>`<div class="row"><span>${esc(st.type)}:</span><span>${esc(st.full.slice(11,16))}</span></div>`).join('')
         +`<div class="row"><span>交通機関:</span><span>${String(d.transport).indexOf('バス')===0?'🚌 バス・電車利用':'🚲 自転車等'}</span></div><div class="row"><span>実働:</span><span>${hm(c.minutes)}</span></div>`;
@@ -2037,12 +2090,13 @@
       persistPunchQueue();
       state.confirmPunch=null; $('confirmModal').classList.remove('show');
       renderAll();
-      showStatus(`✏️ ${draft.userName}さん: ${fmtDay(draft.day.steps[0].full.slice(0,10))} の1日分（${logs.length}件）を修正依頼として記録しました（赤字で残ります）`,'success');
+      showStatus(`✏️ ${draft.userName}さん: ${fmtDay(draft.day.steps[0].full.slice(0,10))} の${draft.day.label||'1日分'}（${logs.length}件）を修正依頼として記録しました（赤字で残ります）`,'success');
       drainPunchQueue();
     }
     function submitFix(){
       const d=state.fixDraft; if(!d) return;
       if(d.mode==='day'){ const dc=fixDayCheck(); if(!dc.ok) return; closeFixModal(); openDayConfirmation(d,dc); return; }
+      if(d.mode==='break'){ const pc=fixPairCheck(); if(!pc.ok) return; closeFixModal(); openPairConfirmation(d,pc); return; }
       const c=fixCheck(); if(!c.ok) return;
       closeFixModal();
       triggerPunchConfirmation(d.type,{fixedTime:{full:c.full,monthOnly:d.date.slice(0,7),display:d.time},reason:$('fixReason').value.trim().slice(0,100),transport:d.transport,replaces:d.replaces});
@@ -2050,10 +2104,13 @@
     // The punch card offers the correction and points at a clock-out that is missing.
     function renderFixEntry(){
       const open=$('fixOpen'), alert=$('fixAlert'); if(!open || !alert) return;
-      const name=state.selectedUser, missing=name ? unclosedShift(name) : '';
+      const name=state.selectedUser, info=name ? unclosedShiftInfo(name) : null, missing=info ? info.time : '';
       open.classList.toggle('hidden', !name);
       alert.classList.toggle('hidden', !missing);
-      if(missing){ $('fixAlertText').textContent=`⚠️ ${formatWithDayOfWeek(missing)} 出勤の退勤がありません`; $('fixAlertBtn').dataset.date=missing.slice(0,10); }
+      if(missing){
+        $('fixAlertText').textContent=`⚠️ ${formatWithDayOfWeek(missing)} 出勤の${info.onBreak?'休憩終了と':''}退勤がありません`;
+        $('fixAlertBtn').textContent=info.onBreak?'休憩終了を入力する':'退勤を入力する'; $('fixAlertBtn').dataset.date=missing.slice(0,10); $('fixAlertBtn').dataset.type=info.onBreak?'休憩終了':'退勤';
+      }
     }
     function readAllocationInputs(){
       return ALLOCATION_ITEMS.map(item=>{const h=Number($(item.id+'_hours').value||0),m=Number($(item.id+'_minutes').value||0);return {id:item.id,minutes:Number.isInteger(h)&&h>=0&&h<=168&&Number.isInteger(m)&&m>=0&&m<=59?h*60+m:NaN,memo:$(item.id+'_memo').value.trim()};});

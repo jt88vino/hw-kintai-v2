@@ -15,7 +15,7 @@ let tmp=0;
 const client={Date,URL,URLSearchParams,AbortController,Set,Map,console,setTimeout:()=>1,clearTimeout(){},setInterval(){},localStorage:{getItem:()=>null,setItem(){}},window:{addEventListener(){},crypto},document:{getElementById:el,querySelectorAll:()=>[],createElement:()=>el('__tmp'+(++tmp))}};
 vm.createContext(client);
 const script=fs.readFileSync('index.html','utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
-vm.runInContext(script.replace("if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();",`window.api={state,correctionFit,unclosedShift,openFixModal,fixCheck,fixDayCheck,submitFix,triggerPunchConfirmation,executePunch,renderRecentLogs,renderPunch,calculateMonthlyStats,summarizeMonth,renderEvents,openShiftModal,resumePendingPunch,punchQueueIdle,setSend:fn=>{adminRequest=fn;},setRead:fn=>{readGASDataOnce=fn;},prepare:()=>{renderAll=()=>{};showStatus=t=>{document.getElementById('statusMessage').textContent=t;};}};`),client);
+vm.runInContext(script.replace("if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();",`window.api={state,correctionFit,unclosedShift,openFixModal,fixCheck,fixDayCheck,fixPairCheck,submitFix,triggerPunchConfirmation,executePunch,renderRecentLogs,renderPunch,calculateMonthlyStats,summarizeMonth,renderEvents,openShiftModal,resumePendingPunch,punchQueueIdle,setSend:fn=>{adminRequest=fn;},setRead:fn=>{readGASDataOnce=fn;},prepare:()=>{renderAll=()=>{};showStatus=t=>{document.getElementById('statusMessage').textContent=t;};}};`),client);
 const api=client.window.api;api.prepare();
 const tick=()=>new Promise(r=>setImmediate(r));
 (async()=>{
@@ -30,7 +30,8 @@ const tick=()=>new Promise(r=>setImmediate(r));
  const sent=[];api.setSend(async p=>{sent.push(p);return {ok:true,action:'add',id:p.requestId,memo:'【修正】'+(p.reason||'押し忘れ')+'（入力）',allocations:JSON.parse(p.allocations||'[]'),corrected:p.correction==='1'?'修正 '+jst(Date.now()):''};});
  // ---- A forgotten clock-out is spotted, entered with its real time, and marked ----
  api.state.selectedUser='橋本';api.state.logs=[{id:'h1',name:'橋本',type:'出勤',time:at(2,8,30),month:at(2,8,30).slice(0,7),category:'',transport:'',memo:'',allocations:[]}];
- assert.equal(api.unclosedShift('橋本'),at(2,8,30));
+ // 「退勤がありません」は、その月の記録を読んで確かめてから出す
+ assert.equal(api.unclosedShift('橋本'),'');await tick();await tick();assert.equal(api.unclosedShift('橋本'),at(2,8,30));
  api.renderPunch();assert(!el('fixAlert').classes.has('hidden'));assert.match(el('fixAlertText').textContent,/出勤の退勤がありません/);assert.equal(el('fixAlertBtn').dataset.date,at(2,8,30).slice(0,10));assert(!el('fixOpen').classes.has('hidden'));
  api.openFixModal();assert(el('fixModal').classes.has('show'));assert.equal(api.state.fixDraft.type,'退勤');assert.equal(api.state.fixDraft.date,at(2,8,30).slice(0,10));
  assert.match(api.fixCheck().preview,/時刻を入力/);await tick();
@@ -81,6 +82,28 @@ const tick=()=>new Promise(r=>setImmediate(r));
    el('checkoutMemo').value='';await api.executePunch();assert.equal(sent.length,0);assert.match(el('punchSendStatus').innerHTML,/実働より5時間少ない/);
    await api.executePunch();await drain();assert.equal(JSON.stringify(sent.map(p=>p.type)),JSON.stringify(['出勤','退勤']));
    assert(sent.every(p=>p.category==='業務配分'));assert.equal(JSON.parse(sent[1].allocations).length,10);api.state.selectedUser='橋本'; }
+ // ---- 「退勤がありません」の誤報：直近の読み込みに古い修正の出勤だけがあっても、月の記録に退勤があれば出さない ----
+ { const day=at(8,9).slice(0,10), month=day.slice(0,7);
+   api.state.selectedUser='長谷川';api.state.users=['橋本','田中','長谷川'];
+   api.state.logs=api.state.logs.concat([{id:'hs1',name:'長谷川',type:'出勤',time:`${day} 09:10:00`,month,category:'業務配分',transport:'',memo:'',allocations:[],corrected:'修正 '+day+' 10:10:19'}]);
+   delete api.state.fixMonths[month];
+   api.setRead(async u=>({ok:true,scope:'month',month:String(u).match(/month=([\d-]+)/)[1],logs:[{id:'hs1',name:'長谷川',type:'出勤',time:`${day} 09:10:00`,month,category:'業務配分'},{id:'hs2',name:'長谷川',type:'退勤',time:`${day} 16:35:39`,month,category:'業務配分'}]}));
+   assert.equal(api.unclosedShift('長谷川'),'');await tick();await tick();assert.equal(api.unclosedShift('長谷川'),'');
+   api.renderPunch();assert(el('fixAlert').classes.has('hidden'),'no false 退勤がありません');
+   // 退勤のあとから休憩を足す（業務配分の人も・翌日でも）：「休憩」で開始と終了をまとめて入れる
+   sent.length=0;api.openFixModal({mode:'break'});await tick();Object.assign(api.state.fixDraft,{date:day,pairStart:'12:00',pairEnd:'13:00'});
+   const pc=api.fixPairCheck();assert.equal(pc.ok,true);assert.match(pc.preview,/12:00〜13:00 の休憩（1時間）/);
+   api.state.fixDraft.pairEnd='11:00';assert.match(api.fixPairCheck().error,/終了は開始より後/);api.state.fixDraft.pairEnd='13:00';
+   api.submitFix();assert.equal(el('executePunch').textContent,'休憩を送る');
+   const drain=async()=>{ for(let i=0;i<20&&(api.state.pendingPunch||api.state.punchQueue.length);i++){ await api.punchQueueIdle();await tick(); } };
+   await api.executePunch();await drain();
+   assert.equal(JSON.stringify(sent.map(p=>[p.type,p.time.slice(11,16),p.correction,p.category])),JSON.stringify([['休憩開始','12:00','1','業務配分'],['休憩終了','13:00','1','業務配分']]));
+   api.setRead(async u=>({ok:true,scope:'month',month:String(u).match(/month=([\d-]+)/)[1],logs:[]})); }
+ // ---- 休憩中は退勤を押せない（先に休憩終了）。押し忘れたときの入口を出す ----
+ { const now=Date.now();api.state.selectedUser='橋本';api.state.pendingPunch=null;api.state.punchQueue=[];
+   api.state.logs=[{id:'b1',name:'橋本',type:'出勤',time:jst(now-3*H),month:jst(now).slice(0,7),category:'',transport:'',memo:'',allocations:[]},{id:'b2',name:'橋本',type:'休憩開始',time:jst(now-H),month:jst(now).slice(0,7),category:'',transport:'',memo:'',allocations:[]}];
+   api.renderPunch();assert.match(el('punchState').textContent,/休憩中.*退勤は休憩終了のあと/);assert(!el('breakFixBtn').classes.has('hidden'));
+   api.openFixModal({type:'休憩終了'});assert.equal(api.state.fixDraft.type,'休憩終了');api.closeFixModal&&api.closeFixModal(); }
  // ---- 📌 予定・連絡: always on the punch screen with ＋ 追加; the calendar adds people only ----
  api.state.shiftData={};api.renderEvents();assert(!el('eventCard').classes.has('hidden'));assert.match(el('eventList').innerHTML,/ありません/);assert.match(el('eventSummary').textContent,/予定なし/);
  { const today=jst(Date.now()).slice(0,10);api.state.shiftData[today.slice(0,7)]={entries:[{id:'ev1',kind:'業務',name:'',start:today,end:today,from:'',to:'',label:'バイブル到着',memo:'',by:'',at:''}],changes:[]};

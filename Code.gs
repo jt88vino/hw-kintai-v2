@@ -1405,9 +1405,7 @@ function correctionFit_(logs, name, type, time, category) {
   }
   const broken = mine.filter(l => before[l.id].ok && !after[l.id].ok).sort((a, b) => a.t - b.t)[0];
   if (broken) return fail("この時刻に入れると、" + clockLabel_(broken.t) + " の" + broken.type + "が無効になります。時刻を確認してください。");
-  // 業務配分 is entered at checkout; a finished shift cannot take a new break or clock-in afterwards.
-  if (category === "業務配分" && type !== "退勤" && mine.some(l => l.type === "退勤" && l.t > t && after[l.id].ok && after[l.id].shift === after.__fix.shift))
-    return fail("この勤務は退勤済み（業務配分も入力済み）のため、あとから入れられません。管理者に修正を依頼してください。");
+  // 業務配分の人も、退勤（配分の入力）のあとから休憩などを足せる（2026-10-06 牛嶋さん指定：休憩の押し忘れは翌日でも入れられる）
   return null;
 }
 // Member sheets show the first punch of each kind per day and list every memo in 備考.
