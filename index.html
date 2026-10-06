@@ -129,7 +129,7 @@
           <p id="punchShiftLine" class="member-help hidden" style="margin:6px 0 0"></p>
           <div id="fixAlert" class="fix-alert hidden" role="status"><span id="fixAlertText"></span><button id="fixAlertBtn" class="mini-btn" type="button">退勤を入力する</button></div>
           <button id="breakFixBtn" class="fix-link hidden" type="button">⏱ 休憩終了を押し忘れたとき</button>
-          <button id="fixOpen" class="fix-link hidden" type="button">✏️ 押し忘れの修正・1日分の手入力</button>
+          <button id="fixOpen" class="fix-link" type="button">✏️ 押し忘れた打刻は、あとから修正できます</button>
         </div>
         <div id="noticeCard" class="card notice-card hidden"><button id="noticeToggle" class="card-toggle" type="button" aria-expanded="false" aria-controls="noticeBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📢 お知らせ</h3><div id="noticeSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><div id="noticeBody" class="hidden" style="margin-top:8px"><div id="noticeList"></div></div></div>
         <div id="eventCard" class="card notice-card"><div class="row" style="align-items:flex-start;gap:8px"><button id="eventToggle" class="card-toggle" style="flex:1;min-width:0" type="button" aria-expanded="false" aria-controls="eventBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📌 予定・連絡（1週間）</h3><div id="eventSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><button id="eventAdd" class="mini-btn" type="button" style="flex:none">＋ 追加</button></div><div id="eventBody" class="hidden" style="margin-top:8px"><div id="eventList"></div><p class="member-help" style="margin:8px 0 0">✏️ で変更、🗑 で削除できます。</p></div></div>
@@ -1959,7 +1959,7 @@
     }
     function openFixModal(preset){
       preset=preset||{};
-      if(!state.selectedUser){ showStatus('先に名前を選択してください。','error'); return; }
+      if(!state.selectedUser){ showStatus('先に名前を選んでください。','error'); const sel=$('selectedUser'); if(sel && sel.focus) sel.focus(); return; }
       const name=state.selectedUser, shift=shiftStateOf(name), info=unclosedShiftInfo(name), open=info?info.time:'', today=todayYmd();
       const type=preset.type || (shift.state==='break' ? '休憩終了' : shift.state!=='off' ? '退勤' : info ? (info.onBreak?'休憩終了':'退勤') : '出勤');
       const date=preset.date || (shift.state!=='off' && shift.shiftStart ? ymd(shift.shiftStart) : open ? open.slice(0,10) : today);
@@ -2105,7 +2105,7 @@
     function renderFixEntry(){
       const open=$('fixOpen'), alert=$('fixAlert'); if(!open || !alert) return;
       const name=state.selectedUser, info=name ? unclosedShiftInfo(name) : null, missing=info ? info.time : '';
-      open.classList.toggle('hidden', !name);
+      open.classList.remove('hidden');
       alert.classList.toggle('hidden', !missing);
       if(missing){
         $('fixAlertText').textContent=`⚠️ ${formatWithDayOfWeek(missing)} 出勤の${info.onBreak?'休憩終了と':''}退勤がありません`;
@@ -2174,17 +2174,17 @@ function shiftWalk_(logs,name,endTime) {
   // Must match the server: normalizeTimeString pads an hour Sheets rendered as "9:22:45",
   // and a shift older than SHIFT_LIMIT_MS is over (a forgotten clock-out never pairs with the next day).
   const parse=t=>new Date(normalizeTimeString(t).replace(" ","T")+"+09:00").getTime();
-  const end=parse(endTime); let active=false, working=false, start=0, ms=0, shiftStart=0;
+  const end=parse(endTime); let active=false, working=false, start=0, ms=0, shiftStart=0, breakStart=0;
   logs.filter(l=>l.name===name && parse(l.time)<=end).sort((a,b)=>parse(a.time)-parse(b.time)).forEach(l=>{
     const t=parse(l.time);
     if(active && t-shiftStart>SHIFT_LIMIT_MS){active=false;working=false;ms=0;}
     if(l.type==='出勤' && !active){active=true;working=true;start=t;shiftStart=t;ms=0;}
-    else if(l.type==='休憩開始' && active && working){ms+=Math.max(0,t-start);working=false;}
+    else if(l.type==='休憩開始' && active && working){ms+=Math.max(0,t-start);working=false;breakStart=t;}
     else if(l.type==='休憩終了' && active && !working){start=t;working=true;}
     else if(l.type==='退勤'){active=false;working=false;ms=0;}
   });
   if(active && Number.isFinite(end) && end-shiftStart>SHIFT_LIMIT_MS){active=false;working=false;ms=0;}
-  return {active,working,start,ms,end,shiftStart};
+  return {active,working,start,ms,end,shiftStart,breakStart};
 }
 function shiftMinutes_(logs,name,endTime) {
   const w=shiftWalk_(logs,name,endTime);
@@ -2194,7 +2194,7 @@ function shiftMinutes_(logs,name,endTime) {
 // The member's shift right now, counting punches still on their way: 'off' | 'working' | 'break'.
 function shiftStateOf(name){
   const w=shiftWalk_(withPending(state.logs),name,getJSTDateTime().full);
-  return {state: !w.active ? 'off' : w.working ? 'working' : 'break', since: w.active ? new Date(w.working ? w.start : w.start) : null, shiftStart: w.active ? new Date(w.shiftStart) : null};
+  return {state: !w.active ? 'off' : w.working ? 'working' : 'break', since: w.active ? new Date(w.working ? w.start : w.breakStart) : null, shiftStart: w.active ? new Date(w.shiftStart) : null};
 }
 
     if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

@@ -103,6 +103,8 @@ const tick=()=>new Promise(r=>setImmediate(r));
  { const now=Date.now();api.state.selectedUser='橋本';api.state.pendingPunch=null;api.state.punchQueue=[];
    api.state.logs=[{id:'b1',name:'橋本',type:'出勤',time:jst(now-3*H),month:jst(now).slice(0,7),category:'',transport:'',memo:'',allocations:[]},{id:'b2',name:'橋本',type:'休憩開始',time:jst(now-H),month:jst(now).slice(0,7),category:'',transport:'',memo:'',allocations:[]}];
    api.renderPunch();assert.match(el('punchState').textContent,/休憩中.*退勤は休憩終了のあと/);assert(!el('breakFixBtn').classes.has('hidden'));
+   assert.match(el('punchState').textContent,new RegExp(`休憩中（${jst(now-H).slice(11,16)}〜）`),'shows when the break began, not when work began');
+   api.state.selectedUser='';api.renderPunch();assert(!el('fixOpen').classes.has('hidden'),'the correction link shows before a name is chosen');api.state.selectedUser='橋本';
    api.openFixModal({type:'休憩終了'});assert.equal(api.state.fixDraft.type,'休憩終了');api.closeFixModal&&api.closeFixModal(); }
  // ---- 📌 予定・連絡: always on the punch screen with ＋ 追加; the calendar adds people only ----
  api.state.shiftData={};api.renderEvents();assert(!el('eventCard').classes.has('hidden'));assert.match(el('eventList').innerHTML,/ありません/);assert.match(el('eventSummary').textContent,/予定なし/);
