@@ -1757,8 +1757,6 @@
       }
       const broken=mine.filter(l=>before[l.id].ok && !after[l.id].ok).sort((a,b)=>a.t-b.t)[0];
       if(broken) return `この時刻に入れると、${fixClock(broken.t)} の${broken.type}が無効になります。時刻を確認してください。`;
-      if(category==='業務配分' && type!=='退勤' && mine.some(l=>l.type==='退勤' && l.t>t && after[l.id].ok && after[l.id].shift===after.__fix.shift))
-        return 'この勤務は退勤済み（業務配分も入力済み）のため、あとから入れられません。管理者に修正を依頼してください。';
       return null;
     }
     // The latest shift that ran past 18 hours without a clock-out, within the correction window ('' if none).

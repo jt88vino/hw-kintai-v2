@@ -55,7 +55,7 @@ const logs=()=>master.rows.slice(1).map((r,i)=>gas.logFromRow_(r.map(v=>v==null?
   assert.match(fit('休憩開始',at(6,12,10)).message,/すでに休憩中/);
   assert.match(fit('退勤',at(5,15)).message,/同じ時刻の退勤/);
   assert.equal(fit('休憩開始',at(5,12)),null);                               // a forgotten break inside a finished shift is fine by punches…
-  assert.match(fit('休憩開始',at(5,12),'業務配分').message,/退勤済み/);            // …but not after 業務配分 was entered at checkout
+  assert.equal(fit('休憩開始',at(5,12),'業務配分'),null);                       // …業務配分 の人も、退勤のあとから休憩を足せる（翌日でも）
 }
 // ---- A correction is saved at once, marked in 修正, memo and red, and refuses what cannot be ---
 const before=master.rows.length;
@@ -83,7 +83,8 @@ assert.equal(post({requestId:'fix-3',name:'橋本',type:'休憩終了',time:at(4
 { // 配分の合計（60分）が実働（180分）と合わなくても受け付け、差を備考に残す
   const short=post({requestId:'fix-4',name:'田中',type:'退勤',time:at(2,13),category:'業務配分',allocations:JSON.stringify(ALLOC(0,60))});
   assert.equal(short.ok,true);assert.match(short.memo,/^【修正】押し忘れ（.*入力）｜HWの生産（60分）｜配分合計60分／実働180分$/);
-  assert.match(post({requestId:'fix-6',name:'田中',type:'休憩開始',time:at(3,10),category:'業務配分'}).message,/退勤済み/); }
+  assert.equal(post({requestId:'fix-6',name:'田中',type:'休憩開始',time:at(3,10),category:'業務配分'}).ok,true);
+  assert.equal(post({requestId:'fix-7',name:'田中',type:'休憩終了',time:at(3,10,30),category:'業務配分'}).ok,true); }
 // ---- Reads: the flag rides along, and the punch screen sees a backdated correction ----
 { for(let k=1;k<=60;k++) master.rows.push(row('喜多',k%2?'出勤':'退勤',jst(NOW-k*5*60000),'k'+k));
   gas.invalidateAttendanceIndex_();
