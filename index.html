@@ -133,6 +133,7 @@
         </div>
         <div id="noticeCard" class="card notice-card hidden"><button id="noticeToggle" class="card-toggle" type="button" aria-expanded="false" aria-controls="noticeBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📢 お知らせ</h3><div id="noticeSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><div id="noticeBody" class="hidden" style="margin-top:8px"><div id="noticeList"></div></div></div>
         <div id="eventCard" class="card notice-card"><div class="row" style="align-items:flex-start;gap:8px"><button id="eventToggle" class="card-toggle" style="flex:1;min-width:0" type="button" aria-expanded="false" aria-controls="eventBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📌 予定・連絡（1週間）</h3><div id="eventSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><button id="eventAdd" class="mini-btn" type="button" style="flex:none">＋ 追加</button></div><div id="eventBody" class="hidden" style="margin-top:8px"><div id="eventList"></div><p class="member-help" style="margin:8px 0 0">✏️ で変更、🗑 で削除できます。</p></div></div>
+        <div id="arrivalCard" class="card notice-card hidden"><button id="arrivalToggle" class="card-toggle" type="button" aria-expanded="false" aria-controls="arrivalBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📦 今日届くワイン</h3><div id="arrivalSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><div id="arrivalBody" class="hidden" style="margin-top:8px"><div id="arrivalList" class="log-list" style="max-height:none"></div><p class="member-help" style="margin:8px 0 0">発注の記録日＋届くまでの日数（在庫シートI列）から出しています。土日・祝日着は次の出勤日に表示。</p></div></div>
         <div id="todayShiftCard" class="card hidden"><button id="todayShiftToggle" class="card-toggle" type="button" aria-expanded="false" aria-controls="todayShiftBody"><div style="min-width:0"><h3 class="card-title" style="margin:0">📅 今日の出勤予定</h3><div id="todayShiftSummary" class="toggle-summary"></div></div><span class="chev">▶</span></button><div id="todayShiftBody" class="hidden" style="margin-top:8px"><div id="todayShiftList" class="log-list" style="max-height:none"></div></div></div>
         <div id="recentCard" class="card relative">
           <div class="sync-cover"><div class="spinner"></div></div>
@@ -303,7 +304,7 @@
       historyDay: '',
       fixMonths: {},
       notices: sanitizeNotices(safeGet('attendance_notices', [])),
-      collapsed: Object.assign({events:true, todayShift:true, monthDetail:true, notices:true}, safeObject(safeGet('attendance_collapsed', {}))),
+      collapsed: Object.assign({events:true, todayShift:true, monthDetail:true, notices:true, arrivals:true}, safeObject(safeGet('attendance_collapsed', {}))),
       appEtag: '',
       refreshing: false,
       deleteTargetLog: null,
@@ -510,11 +511,14 @@
       $('headerRefresh').addEventListener('click', refreshAll);
       $('confirmDialogOk').addEventListener('click', ()=>settleConfirm(true));
       $('confirmDialogCancel').addEventListener('click', ()=>settleConfirm(false));
-      [['noticeToggle','notices'],['eventToggle','events'],['todayShiftToggle','todayShift'],['statsToggle','monthDetail']].forEach(([id,key])=>{ const b=$(id); if(b) b.addEventListener('click', ()=>{ state.collapsed[key]=!state.collapsed[key]; safeSet('attendance_collapsed', state.collapsed); renderAll(); }); });
+      [['noticeToggle','notices'],['eventToggle','events'],['todayShiftToggle','todayShift'],['arrivalToggle','arrivals'],['statsToggle','monthDetail']].forEach(([id,key])=>{ const b=$(id); if(b) b.addEventListener('click', ()=>{ state.collapsed[key]=!state.collapsed[key]; safeSet('attendance_collapsed', state.collapsed); renderAll(); }); });
       $('cancelDelete').addEventListener('click', closeDeleteModal);
       $('executeDelete').addEventListener('click', confirmDeleteLog);
       $('deletePassword').addEventListener('input', ()=> $('deleteError').classList.add('hidden'));
       $('showDebugBtn').addEventListener('click', toggleDebug);
+      loadArrivals();
+      setInterval(()=>{ if(document.visibilityState==='visible') loadArrivals(); }, 10*60*1000);
+      document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') loadArrivals(); });
       document.addEventListener('visibilitychange', ()=>{
         if(!document.hidden && !state.isSyncing && !state.isPunchSubmitting) syncLogsFromGAS('visible');
         if(!document.hidden) checkAppVersion().then(changed=>{ if(changed) $('updateNotice').className='status info show'; });
@@ -874,6 +878,7 @@
       renderFixEntry();
       renderTransportChoice();
       renderTodayShifts();
+      renderArrivals();
       renderEvents();
       renderRecentLogs();
       renderInstallTip();
@@ -1220,6 +1225,29 @@
       applyCollapse('eventToggle','eventBody','eventSummary',!state.collapsed.events,summary);
     }
     // Today's members from the shift sheet, with where each one is right now.
+    // 📦 今日届くワイン：瓶詰め記録ツールの /api/arrivals（発注の記録日＋在庫シートI列の日数）から。読めなければカードを出さない
+    const ARRIVALS_URL='https://bottle-record-tool.vercel.app/api/arrivals';
+    let arrivals=null, arrivalsLoadedAt=0, arrivalsLoading=false;
+    async function loadArrivals(force){
+      if(arrivalsLoading || (!force && arrivals && arrivals.today===todayYmd() && Date.now()-arrivalsLoadedAt<5*60*1000)) return;
+      arrivalsLoading=true;
+      try{ const r=await fetch(`${ARRIVALS_URL}?today=${todayYmd()}`,{cache:'no-store'}); const j=await r.json(); if(r.ok && Array.isArray(j.items)){ arrivals=j; arrivalsLoadedAt=Date.now(); safeSet('attendance_arrivals', j); } }
+      catch(e){ /* 読めなくても勤怠には影響しない */ }
+      finally{ arrivalsLoading=false; renderArrivals(); }
+    }
+    function renderArrivals(){
+      const card=$('arrivalCard'), list=$('arrivalList'); if(!card||!list) return;
+      if(!arrivals){ const cached=safeObject(safeGet('attendance_arrivals',null)); if(cached && cached.today===todayYmd()) arrivals=cached; }
+      if(!arrivals || arrivals.today!==todayYmd()){ card.classList.add('hidden'); return; }
+      card.classList.remove('hidden');
+      const items=arrivals.items||[], next=arrivals.nextItems||[], total=items.reduce((n,i)=>n+i.bottles,0);
+      const md=d=>`${Number(d.slice(5,7))}/${Number(d.slice(8,10))}`;
+      const row=i=>`<div class="log-item"><div class="log-main"><div class="log-line"><span class="tag">${esc(String(i.id).replace(/^vol\./i,''))}</span><span class="name">${esc(i.name||i.id)}</span></div></div><b style="white-space:nowrap">${i.bottles}本</b></div>`;
+      const summary=items.length?`${items.length}銘柄・${total}本（${esc(items.slice(0,2).map(i=>String(i.id).replace(/^vol\./i,'')).join('、'))}${items.length>2?' ほか':''}）`:'今日届く予定はありません';
+      applyCollapse('arrivalToggle','arrivalBody','arrivalSummary',!state.collapsed.arrivals,summary);
+      list.innerHTML=(items.length?items.map(row).join(''):'<p class="member-help" style="margin:0">今日届く予定はありません。</p>')
+        +(next.length?`<p class="shift-section">次の出勤日（${md(arrivals.next)}）に届く予定</p>${next.map(row).join('')}`:'');
+    }
     function renderTodayShifts(){
       const card=$('todayShiftCard'), list=$('todayShiftList'); if(!card||!list) return;
       const day=todayYmd(); const items=sortEntries(entriesOn(day.slice(0,7),day));
