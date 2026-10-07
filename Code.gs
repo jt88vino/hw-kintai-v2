@@ -1132,12 +1132,14 @@ function readNotices_(ss) {
   } catch (e) { return []; }
 }
 function addNotice_(ss, params) {
-  if (!noticeAuth_(params)) return {ok:false, action:"noticeAdd", error:"unauthorized", message:"お知らせの掲載には管理者認証が必要です。"};
+  // 2026-10-07: お知らせは誰でも掲載・削除できる（予定・連絡と同じ）。表示する期日は必須で、過ぎたら出なくなる
   const text = String(params.text || "").replace(/\r/g, "").trim();
   if (!text) return {ok:false, action:"noticeAdd", error:"missing_text", message:"本文を入力してください。"};
   if (text.length > 500) return {ok:false, action:"noticeAdd", error:"too_long", message:"本文は500文字までです。"};
   const from = shiftDate_(params.from), until = shiftDate_(params.until);
-  if (from && until && until < from) return {ok:false, action:"noticeAdd", error:"invalid_date", message:"掲載終了は掲載開始以降にしてください。"};
+  if (!until) return {ok:false, action:"noticeAdd", error:"missing_until", message:"表示する期日を入れてください。"};
+  if (until < Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy-MM-dd")) return {ok:false, action:"noticeAdd", error:"past_until", message:"期日は今日以降にしてください。"};
+  if (from && until < from) return {ok:false, action:"noticeAdd", error:"invalid_date", message:"掲載終了は掲載開始以降にしてください。"};
   const id = /^[A-Za-z0-9-]{8,64}$/.test(String(params.id || "")) ? String(params.id) : Utilities.getUuid();
   const lock = LockService.getScriptLock(); lock.waitLock(10000);
   try {
@@ -1151,7 +1153,6 @@ function addNotice_(ss, params) {
   } finally { lock.releaseLock(); }
 }
 function deleteNotice_(ss, params) {
-  if (!noticeAuth_(params)) return {ok:false, action:"noticeDelete", error:"unauthorized", message:"お知らせの削除には管理者認証が必要です。"};
   const lock = LockService.getScriptLock(); lock.waitLock(10000);
   try {
     const sheet = ss.getSheetByName(NOTICE_SHEET_NAME);
