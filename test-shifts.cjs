@@ -51,20 +51,18 @@ assert.equal(JSON.parse(gas.handleRequest_({parameter:{action:'adminResult',rece
 assert.equal(JSON.parse(gas.handleRequest_({parameter:{action:'shift',month:'2026-10'}},false).getContent()).entries.length,4);
 // A day event may be removed by anyone as well.
 { const ev=gas.readShifts_(ss,{month:'2026-10',fresh:'1'}).entries.find(e=>e.kind==='業務'); assert.equal(gas.deleteShift_(ss,{id:ev.id,by:'松井'}).ok,true); }
-// ---- お知らせ: 管理者認証か NOTICE_TOKEN が要る。期間外・削除済みは配信されない ----
-assert.equal(gas.addNotice_(ss,{text:'こんにちは'}).error,'unauthorized');
-props.set('NOTICE_TOKEN','abcdefghijklmnop123456');
-assert.equal(gas.addNotice_(ss,{text:'',noticeToken:'abcdefghijklmnop123456'}).error,'missing_text');
-assert.equal(gas.addNotice_(ss,{text:'x',noticeToken:'wrong-token-wrong-token'}).error,'unauthorized');
-let nt=gas.addNotice_(ss,{text:'10月からシフトはこのアプリで管理します。\n入力は本人で。',noticeToken:'abcdefghijklmnop123456'});assert.equal(nt.ok,true);assert.equal(nt.notice.by,'管理者');
-assert.equal(gas.addNotice_(ss,{id:nt.id,text:'dup',noticeToken:'abcdefghijklmnop123456'}).duplicate,true);
-const old=gas.addNotice_(ss,{text:'古い',until:'2020-01-01',adminToken:token,by:'管理者'});assert.equal(old.ok,true);
-const future=gas.addNotice_(ss,{text:'未来',from:'2099-01-01',adminToken:token});assert.equal(future.ok,true);
-assert.equal(gas.addNotice_(ss,{text:'逆',from:'2026-10-02',until:'2026-10-01',adminToken:token}).error,'invalid_date');
+// ---- お知らせ: 誰でも掲載・削除できる。表示する期日は必須。期間外・削除済みは配信されない ----
+assert.equal(gas.addNotice_(ss,{text:'',until:'2099-01-01'}).error,'missing_text');
+assert.equal(gas.addNotice_(ss,{text:'期日なし'}).error,'missing_until');
+assert.equal(gas.addNotice_(ss,{text:'過去',until:'2020-01-01'}).error,'past_until');
+let nt=gas.addNotice_(ss,{text:'10月からシフトはこのアプリで管理します。\n入力は本人で。',until:'2099-12-31',by:'松井'});assert.equal(nt.ok,true);assert.equal(nt.notice.by,'松井');
+assert.equal(gas.addNotice_(ss,{id:nt.id,text:'dup',until:'2099-12-31'}).duplicate,true);
+const future=gas.addNotice_(ss,{text:'未来',from:'2099-01-01',until:'2099-02-01'});assert.equal(future.ok,true);
+assert.equal(gas.addNotice_(ss,{text:'逆',from:'2099-10-02',until:'2099-10-01'}).error,'invalid_date');
 let notices=gas.readNotices_(ss);assert.equal(notices.length,1);assert.equal(notices[0].id,nt.id);assert.match(notices[0].text,/\n入力は本人で/);
-assert.equal(gas.deleteNotice_(ss,{id:nt.id}).error,'unauthorized');assert.equal(gas.deleteNotice_(ss,{id:'zzz',adminToken:token}).error,'not_found');
-assert.equal(gas.deleteNotice_(ss,{id:nt.id,noticeToken:'abcdefghijklmnop123456'}).ok,true);assert.equal(gas.readNotices_(ss).length,0);
-cache.set('attendance:recent','{"stale":true}');gas.addNotice_(ss,{text:'再掲',noticeToken:'abcdefghijklmnop123456'});assert.equal(cache.has('attendance:recent'),false); // a new notice invalidates the cached read
+assert.equal(gas.deleteNotice_(ss,{id:'zzz'}).error,'not_found');
+assert.equal(gas.deleteNotice_(ss,{id:nt.id,by:'田中'}).ok,true);assert.equal(gas.readNotices_(ss).length,0);
+cache.set('attendance:recent','{"stale":true}');gas.addNotice_(ss,{text:'再掲',until:'2099-12-31'});assert.equal(cache.has('attendance:recent'),false); // a new notice invalidates the cached read
 // ---- Client side ----
 const html=fs.readFileSync('index.html','utf8'),script=html.match(/<script>([\s\S]*?)<\/script>/)[1];const nodes=new Map();
 function el(id){if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',innerHTML:'',disabled:false,querySelectorAll:()=>[],classList:{add(){},remove(){},toggle(){}}});return nodes.get(id);}
