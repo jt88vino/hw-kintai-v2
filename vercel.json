@@ -1,5 +1,5 @@
 {
-  "functions": {
-    "api/attendance.js": { "maxDuration": 30 }
-  }
+  "routes": [
+    { "src": "/(.*)", "dest": "https://hw-app-sepia.vercel.app/$1" }
+  ]
 }
