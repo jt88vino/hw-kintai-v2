@@ -64,7 +64,7 @@ function handleRequest_(e, isPost) {
     const value = /^[a-f0-9-]{36}$/.test(key) ? CacheService.getScriptCache().get("result:" + key) : null;
     return createResponse_(e, value ? JSON.parse(value) : {ok:false, pending:true});
   }
-  if (adminActions.indexOf(action) !== -1 || action === "deleteRecent" || action === "shiftAdd" || action === "shiftDelete" || action === "noticeAdd" || action === "noticeDelete" || action === "summaryRebuild" || action === "correctionSetup" || (action === "add" && isPost)) {
+  if (adminActions.indexOf(action) !== -1 || action === "deleteRecent" || action === "shiftAdd" || action === "shiftDelete" || action === "noticeAdd" || action === "noticeDelete" || action === "summaryRebuild" || action === "correctionSetup" || action === "correctTime" || (action === "add" && isPost)) {
     if (!isPost || params.callback) return createResponse_(e, {ok:false, error:"post_required"});
     if (!/^[a-f0-9-]{36}$/.test(String(params.receipt || ""))) return createResponse_(e, {ok:false, error:"invalid_receipt"});
     let result;
@@ -78,6 +78,7 @@ function handleRequest_(e, isPost) {
       else if (action === "noticeDelete") { result = deleteNotice_(SpreadsheetApp.openById(SPREADSHEET_ID), params); }
       else if (action === "summaryRebuild") { result = rebuildSummary_(SpreadsheetApp.openById(SPREADSHEET_ID), params); }
       else if (action === "correctionSetup") { result = setupCorrectionFormats_(SpreadsheetApp.openById(SPREADSHEET_ID), params); }
+      else if (action === "correctTime") { const fixSS = SpreadsheetApp.openById(SPREADSHEET_ID); result = correctTime_(getOrCreateMasterSheet_(fixSS), params); }
       else {
         if(action==='delete' && params.adminPassword) {
           const auth=loginAdmin_(params);
@@ -95,7 +96,7 @@ function handleRequest_(e, isPost) {
     } catch (err) { result = {ok:false, error:"admin_action_failed", message:"管理者操作に失敗しました。再同期して状態を確認してください。"}; }
     CacheService.getScriptCache().put("result:" + params.receipt, JSON.stringify(result), 60);
     // The receipt is stored, so the app already has its answer; the payroll sheet catches up afterwards.
-    if (result && result.ok && (action === "add" || action === "delete" || action === "deleteRecent")) { try { refreshMonthlySummary_(summaryMonthsFor_(action, params)); } catch (err) {} }
+    if (result && result.ok && (action === "add" || action === "delete" || action === "deleteRecent" || action === "correctTime")) { try { refreshMonthlySummary_(summaryMonthsFor_(action, params)); } catch (err) {} }
     return createResponse_(e, result);
   }
   try {
@@ -1264,8 +1265,8 @@ function summaryMonthsFor_(action, params) {
   const now = new Date(), current = Utilities.formatDate(now, "Asia/Tokyo", "yyyy-MM");
   const months = [current];
   const punched = String(params.month || deriveMonth_(params.time || "") || "");
-  if (action === "add" && /^\d{4}-\d{2}$/.test(punched)) months.push(punched);
-  else if (action !== "add") { const prev = new Date(now.getTime()); prev.setUTCDate(1); prev.setUTCMonth(prev.getUTCMonth() - 1); months.push(Utilities.formatDate(prev, "Asia/Tokyo", "yyyy-MM")); }
+  if ((action === "add" || action === "correctTime") && /^\d{4}-\d{2}$/.test(punched)) months.push(punched);
+  else if (action !== "add" && action !== "correctTime") { const prev = new Date(now.getTime()); prev.setUTCDate(1); prev.setUTCMonth(prev.getUTCMonth() - 1); months.push(Utilities.formatDate(prev, "Asia/Tokyo", "yyyy-MM")); }
   return months.filter((m, i) => months.indexOf(m) === i);
 }
 // Months that failed to refresh are remembered and retried on the next write, so the sheet never stays stale silently.
@@ -1301,6 +1302,45 @@ function upgradeSummaryView_(sheet) {
   rules.push(SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied("=AND(ISNUMBER($L8),$L8>0)").setFontColor("#c62828").setBold(true).setBackground("#ffebee").setRanges([sheet.getRange("L8:L200")]).build());
   sheet.setConditionalFormatRules(rules);
   return true;
+}
+
+// ===== 時刻の修正（新しい社内アプリで承認された「押した時刻を直す」） =====
+// 元の行（システムID）の打刻日時を直し、修正列・備考の【修正】・赤字で必ず残す。勤務表と実働はセル参照なので追いつく。
+// 同じ内容を二度送っても1回分。名前・区分が合わない行や、12時間以上ずれる修正は受け付けない。
+function correctTime_(sheet, params) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const id = String(params.id || ""), name = String(params.name || ""), type = String(params.type || ""), time = indexTime_(params.time || "");
+    const fail = (error, message) => ({ok:false, action:"correctTime", error:error, message:message});
+    if (!id || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(time)) return fail("invalid_params", "直す打刻と時刻を確認してください。");
+    const t = correctionTime_(time), now = Date.now();
+    if (!Number.isFinite(t) || t > now + 2 * 60000) return fail("invalid_time", "これからの時刻には直せません。");
+    const lastRow = sheet.getLastRow();
+    const found = lastRow > 1 ? sheet.getRange(2, 6, lastRow - 1, 1).createTextFinder(id).matchEntireCell(true).matchCase(true).findNext() : null;
+    if (!found) return fail("not_found", "対象の打刻がありません。");
+    const r = found.getRow(), width = MASTER_HEADERS.length;
+    const row = sheet.getRange(r, 1, 1, width).getDisplayValues()[0];
+    if (row[1] !== name || row[2] !== type) return fail("mismatch", "名前か区分が合いません。");
+    const before = indexTime_(row[3]);
+    if (before === time) return {ok:true, action:"correctTime", id:id, duplicate:true, time:time};
+    if (Math.abs(correctionTime_(before) - t) > 12 * 3600000) return fail("too_far", "12時間以上ずれる修正はできません。");
+    const reason = String(params.reason || "").split(/[\r\n｜]+/).map(s=>s.trim()).filter(Boolean).join(" ").slice(0, 100) || "時刻の修正";
+    const note = CORRECTION_MARK + reason + "（" + before.slice(11, 16) + "→" + time.slice(11, 16) + "、" + clockLabel_(now) + " 入力）";
+    const memo = String(row[7] || "");
+    const stamp = "修正 " + jstStamp_(now);
+    sheet.getRange(r, 4).setValue(time);
+    if (deriveMonth_(time) !== deriveMonth_(before)) sheet.getRange(r, 5).setValue(deriveMonth_(time));
+    sheet.getRange(r, 8).setValue(note + (memo ? "｜" + memo : ""));
+    sheet.getRange(r, width).setValue(stamp);
+    try { sheet.getRange(r, 1, 1, width).setFontColor(CORRECTION_COLOR); } catch (err) {}
+    try { if (typeof sheet.getParent === "function") ensureCorrectionFormats_(sheet.getParent(), name); } catch (err) {}
+    invalidateAttendanceIndex_();
+    SpreadsheetApp.flush();
+    return {ok:true, action:"correctTime", id:id, before:before, time:time, memo:note, corrected:stamp};
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ===== 修正依頼（押し忘れた打刻をあとから入れる） =====
