@@ -1,5 +1,13 @@
 {
   "routes": [
-    { "src": "/(.*)", "dest": "https://hw-app-sepia.vercel.app/$1" }
-  ]
+    {
+      "src": "/(.*)",
+      "dest": "https://hw-app-sepia.vercel.app/$1"
+    }
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "security/node-october-2026": false
+    }
+  }
 }
